@@ -172,3 +172,71 @@ def parse_json(text: str) -> Optional[dict]:
             e = t.rfind("}", s, e)
         s = t.find("{", s + 1)
     return None
+
+
+class KaggleProxyBackend(Backend):
+    """Frontier models via the Kaggle Model Proxy (the user's Kaggle AI credits).
+
+    Tokens are minted from the user's Kaggle API credential (injected by the network proxy), live ~1h,
+    are held in memory only, and are refreshed automatically. The proxy is OpenAI-compatible at
+    <base>/openapi and ignores temperature. `spend_cap_usd` stops the run before the daily quota is hit."""
+
+    def __init__(self, model: str, max_workers: int = 8, spend_cap_usd: float = 9.0, max_retries: int = 4):
+        self.name = model
+        self.max_workers = max_workers
+        self.spend_cap = spend_cap_usd
+        self.max_retries = max_retries
+        self._tok = None
+        self._exp = 0.0
+        self._client = None
+        self.start_spend = self.spend()
+
+    def _kc(self):
+        from kagglesdk import KaggleClient
+        return KaggleClient(api_token="proxy-injected")
+
+    def spend(self) -> float:
+        from kagglesdk.models.types.model_proxy_api_service import ApiGetModelProxyQuotasRequest
+        with self._kc() as c:
+            r = c.models.model_proxy_api_client.get_model_proxy_quotas(ApiGetModelProxyQuotasRequest())
+        daily = [b for b in r.quota_balances if "DAILY" in str(b.refill_period)]
+        return float(daily[0].quota_used) if daily else 0.0
+
+    def _ensure(self):
+        import time
+        import openai
+        if self._client is not None and time.time() < self._exp - 300:
+            return
+        from kagglesdk.models.types.model_proxy_api_service import ApiCreateDefaultModelProxyTokenRequest
+        with self._kc() as c:
+            r = c.models.model_proxy_api_client.create_default_model_proxy_token(ApiCreateDefaultModelProxyTokenRequest())
+        base = r.base_uri.rstrip("/")
+        for suf in ("/openapi", "/genai"):
+            if base.endswith(suf):
+                base = base[: -len(suf)]
+        self._client = openai.OpenAI(api_key=r.token, base_url=base + "/openapi", timeout=120)
+        self._exp = r.expiry_time.timestamp() if hasattr(r.expiry_time, "timestamp") else time.time() + 3000
+
+    def chat(self, batch, max_tokens=400, temperature=0.7, seed=0):
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+        used = self.spend() - self.start_spend
+        if used >= self.spend_cap:
+            raise RuntimeError(f"spend cap reached: ${used:.2f} >= ${self.spend_cap:.2f}")
+        self._ensure()
+
+        def one(msgs):
+            for attempt in range(self.max_retries):
+                try:
+                    r = self._client.chat.completions.create(model=self.name, messages=msgs,
+                                                             max_completion_tokens=max_tokens)
+                    return r.choices[0].message.content or ""
+                except Exception as e:  # rate limits / transient errors
+                    if attempt == self.max_retries - 1:
+                        print(f"[kaggle-proxy] giving up: {type(e).__name__}: {str(e)[:120]}", flush=True)
+                        return ""
+                    time.sleep(2 ** attempt * 2)
+        with ThreadPoolExecutor(self.max_workers) as ex:
+            out = list(ex.map(one, batch))
+        self.calls += len(batch)
+        return out

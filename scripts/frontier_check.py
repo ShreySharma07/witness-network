@@ -116,6 +116,7 @@ def main():
                "caught_anyway_notool": sum(r["B2-notool"] > 0 for r in und),
                "B1_claude_vs_ctrl": summarize([r["B1_claude"] for _, _, r in tampered], ctrl_scores) if ctrl_scores else None}
         json.dump(out, open(os.path.join(a.out, "colluders.json"), "w"), indent=1)
+        json.dump(bundles, open(os.path.join(a.out, "colluders_bundles.json"), "w"))  # for witness-by-design replay
         print("colluders:", {k: v for k, v in out.items() if k != "rows"}, flush=True)
     print("total spend this run $", round(claude.spend() - claude.start_spend, 3))
 

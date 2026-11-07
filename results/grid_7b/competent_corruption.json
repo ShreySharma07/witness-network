@@ -1,0 +1,62 @@
+{
+  "as-run|notool": {
+    "detected": 91,
+    "n": 92,
+    "rate": 0.989
+  },
+  "as-run|notool|with-compliers": {
+    "detected": 79,
+    "n": 79,
+    "rate": 1.0
+  },
+  "as-run|tool": {
+    "detected": 92,
+    "n": 92,
+    "rate": 1.0
+  },
+  "as-run|tool|with-compliers": {
+    "detected": 79,
+    "n": 79,
+    "rate": 1.0
+  },
+  "competent-all-held|notool": {
+    "detected": 80,
+    "n": 92,
+    "rate": 0.87
+  },
+  "competent-all-held|notool|with-compliers": {
+    "detected": 68,
+    "n": 79,
+    "rate": 0.861
+  },
+  "competent-all-held|tool": {
+    "detected": 90,
+    "n": 92,
+    "rate": 0.978
+  },
+  "competent-all-held|tool|with-compliers": {
+    "detected": 77,
+    "n": 79,
+    "rate": 0.975
+  },
+  "competent-requested|notool": {
+    "detected": 89,
+    "n": 92,
+    "rate": 0.967
+  },
+  "competent-requested|notool|with-compliers": {
+    "detected": 77,
+    "n": 79,
+    "rate": 0.975
+  },
+  "competent-requested|tool": {
+    "detected": 91,
+    "n": 92,
+    "rate": 0.989
+  },
+  "competent-requested|tool|with-compliers": {
+    "detected": 78,
+    "n": 79,
+    "rate": 0.987
+  }
+}

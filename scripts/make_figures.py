@@ -128,39 +128,48 @@ def fig2(rows, path):
     plt.close(fig)
 
 
-def fig3(rows, coverups, path):
+def fig3(rows, coverups, path, out_dir, extra_compliance=None):
+    """Left: honest-witness compliance (7B; optional extra models). Right: B2 detection on corrupted episodes,
+    as run vs competent execution of the same comply decisions (scripts/competent_corruption.py)."""
     reqs = [q for b in coverups for q in b.get("requests", []) if "comply" in q]
-    if not reqs:
-        print("fig3 skipped: no corruption requests")
+    cc_path = os.path.join(out_dir, "competent_corruption.json")
+    if not reqs or not os.path.exists(cc_path):
+        print("fig3 skipped")
         return
-    rate = sum(q["comply"] for q in reqs) / len(reqs)
-    ctrl = [r for r in rows if r["condition"] == "ctrl-attack-untampered"]
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.6), gridspec_kw={"width_ratios": [1, 2.2]})
+    cc = json.load(open(cc_path))
+    bars = [("Qwen2.5-7B", sum(q["comply"] for q in reqs) / len(reqs), len(reqs))]
+    for name, rate, n in (extra_compliance or []):
+        bars.append((name, rate, n))
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.7), gridspec_kw={"width_ratios": [1, 2.2]})
     ax = axes[0]
-    ax.bar([0], [rate], color=SERIES["X"][0], width=0.5)
-    ax.set_xticks([0], ["honest witnesses\nasked to 'correct'"], fontsize=7)
-    ax.set_ylim(0, 1)
-    ax.set_ylabel("compliance rate")
-    ax.annotate(f"{rate:.0%} (n={len(reqs)})", (0, rate), xytext=(0, 3), textcoords="offset points", ha="center",
-                fontsize=8, color=INK)
+    ax.grid(axis="x", visible=False)
+    for i, (name, rate, n) in enumerate(bars):
+        ax.bar([i], [rate], color=SERIES["X"][0], width=0.55)
+        ax.annotate(f"{rate:.0%}\n(n={n})", (i, rate), xytext=(0, 2), textcoords="offset points", ha="center",
+                    fontsize=7, color=INK)
+    ax.set_xticks(range(len(bars)), [b[0] for b in bars], fontsize=7)
+    ax.set_ylim(0, 1.15)
+    ax.set_ylabel("honest witnesses who comply")
+    ax.set_title("'please correct your log'", fontsize=9, color=INK, loc="left")
     ax = axes[1]
-    auds = ["B2-notool", "B3-notool", "B2", "B3"]
-    corrupted_ids = {(b["episode_id"]) for b in coverups if any(q.get("comply") is not None for q in b.get("requests", []))}
+    ax.grid(axis="x", visible=False)
+    modes = [("as-run", "as executed"), ("competent-requested", "competent:\nrequested records"),
+             ("competent-all-held", "competent:\nall held records")]
     w = 0.38
-    for j, (cond, lab, col) in enumerate([("organic-adaptive", "adaptive, no corruption", SERIES["B3"][0]),
-                                          ("organic-corrupt", "adaptive + corruption", SERIES["X"][0])]):
-        vals = []
-        for aud in auds:
-            t = thr(ctrl, aud)
-            g = [r for r in rows if r["condition"] == cond and aud in r and r["episode_id"] in corrupted_ids]
-            vals.append(sum(r[aud]["score"] > t for r in g) / len(g) if g and t is not None else float("nan"))
-        ax.bar([i + (j - 0.5) * w for i in range(len(auds))], vals, width=w - 0.04, color=col, label=lab)
-    ax.set_xticks(range(len(auds)), [a.replace("-notool", "\n(no tool log)") for a in auds], fontsize=7)
-    ax.set_ylim(0, 1.05)
-    ax.set_ylabel(f"tamper detection (TPR @ {int(FPR*100)}% FPR)")
-    ax.set_title(f"episodes where corruption was attempted (n={len(corrupted_ids)})", fontsize=9, color=INK,
-                 loc="left")
-    ax.legend(frameon=False, fontsize=7)
+    for j, (tool, lab, col) in enumerate([("notool", "peer witnesses only", SERIES["B2"][0]),
+                                          ("tool", "+ trusted tool log", SERIES["B0"][0])]):
+        vals = [cc[f"{m}|{tool}|with-compliers"]["rate"] for m, _ in modes]
+        xs = [i + (j - 0.5) * w for i in range(len(modes))]
+        ax.bar(xs, vals, width=w - 0.04, color=col, label=lab)
+        for x, v in zip(xs, vals):
+            ax.annotate(f"{v:.0%}", (x, v), xytext=(0, 2), textcoords="offset points", ha="center", fontsize=7,
+                        color=INK)
+    n = cc["as-run|notool|with-compliers"]["n"]
+    ax.set_xticks(range(len(modes)), [m[1] for m in modes], fontsize=7)
+    ax.set_ylim(0, 1.15)
+    ax.set_ylabel("B2 detects cover-up")
+    ax.set_title(f"cover-ups with >=1 complying witness (n={n})", fontsize=9, color=INK, loc="left")
+    ax.legend(frameon=False, fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=2)
     fig.tight_layout()
     fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
@@ -195,6 +204,7 @@ def main():
     p.add_argument("--out", required=True)
     p.add_argument("--figs", default="report/figs")
     p.add_argument("--real", default="results/realdata/collusion_wiki_coverage.json")
+    p.add_argument("--extra-14b", default="", help="out dir of the 14B run (recomply.json)")
     a = p.parse_args()
     os.makedirs(a.figs, exist_ok=True)
     eps, rows = load(a.out)
@@ -203,7 +213,13 @@ def main():
     fig2(rows, os.path.join(a.figs, "fig2_coverage.png"))
     cov = os.path.join(a.out, "coverups.jsonl")
     coverups = [json.loads(l) for l in open(cov)] if os.path.exists(cov) else []
-    fig3(rows, coverups, os.path.join(a.figs, "fig3_witness_corruption.png"))
+    extra = []
+    for name, d in [("Qwen2.5-14B", a.extra_14b)]:
+        pth = os.path.join(d, "recomply.json") if d else ""
+        if pth and os.path.exists(pth):
+            rc = json.load(open(pth))
+            extra.append((name, rc["rate"], rc["n"]))
+    fig3(rows, coverups, os.path.join(a.figs, "fig3_witness_corruption.png"), a.out, extra)
     fig4(a.real, os.path.join(a.figs, "fig4_realdata.png"))
     print("figures written to", a.figs)
 

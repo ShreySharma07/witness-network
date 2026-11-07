@@ -161,7 +161,7 @@ Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases 
 | CC 1 random peer | 1.5× | 0.67 | 0.78 | 1.00 | 0.00 |
 | CC all peers | 3.9× | 0.67 | 0.78 | 1.00 | 0.00 |
 | **CC 1 peer + receipts** | **1.5×** | **0.97** | 1.00 | 1.00 | 0.84 |
-| CC 2 peers + receipts | 2.0× | 1.00 | 1.00 | 1.00 | 0.98 |
+| CC 2 peers + receipts | 2.0× | 0.996 | 1.00 | 1.00 | 0.98 |
 
 ## 5. Discussion and Limitations
 

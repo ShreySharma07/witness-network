@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+data/episodes/
+data/tampered/
+data/audits/
+data/cache/
+data/raw/
+.ipynb_checkpoints/

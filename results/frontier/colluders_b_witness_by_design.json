@@ -1,0 +1,91 @@
+{
+ "summary": {
+  "base_B2_notool": "8/10",
+  "CC1+receipts_B2_notool": "10/10",
+  "CC1+receipts_CONTROL_untampered": "0/10",
+  "CC2+receipts_B2_notool": "10/10",
+  "CC2+receipts_CONTROL_untampered": "0/10"
+ },
+ "rows": [
+  {
+   "episode_id": "complete-k2-s0",
+   "base_B2_notool": true,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  },
+  {
+   "episode_id": "complete-k2-s4",
+   "base_B2_notool": false,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  },
+  {
+   "episode_id": "complete-k3-s2",
+   "base_B2_notool": true,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  },
+  {
+   "episode_id": "complete-k4-s4",
+   "base_B2_notool": true,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  },
+  {
+   "episode_id": "hub-k1-s2",
+   "base_B2_notool": false,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  },
+  {
+   "episode_id": "hub-k2-s0",
+   "base_B2_notool": true,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  },
+  {
+   "episode_id": "regular3-k2-s0",
+   "base_B2_notool": true,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  },
+  {
+   "episode_id": "regular3-k4-s0",
+   "base_B2_notool": true,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  },
+  {
+   "episode_id": "regular3-k4-s4",
+   "base_B2_notool": true,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  },
+  {
+   "episode_id": "ring-k3-s2",
+   "base_B2_notool": true,
+   "CC1+receipts_B2_notool": true,
+   "CC1+receipts_CONTROL_untampered": false,
+   "CC2+receipts_B2_notool": true,
+   "CC2+receipts_CONTROL_untampered": false
+  }
+ ]
+}

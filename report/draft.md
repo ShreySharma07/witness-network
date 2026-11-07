@@ -7,7 +7,7 @@
 
 ## Abstract
 
-When AI agents can edit their own logs, after-the-fact oversight depends on whether someone the agent does not control also recorded what happened. In multi-agent systems the obvious second recorders are the other agents, but no one has measured how well peer agents work as witnesses against a colluding coalition. We build **Witness Networks**: 216 episodes of an 8-agent LLM swarm on four topologies, where 1–4 elicited colluders exfiltrate a canary and then edit their own records, or ask honest peers to "correct" theirs. We prove that a coordinated cover-up is detectable by cross-log consistency iff some altered record names a party outside the coalition. An exact cross-log matcher follows this bound in every scripted audit and gets 0.935 AUROC against same-episode attack-only controls. LLM monitors that read agents' journals detect the attack but not the cover-up. From 7B to Claude Sonnet 5, tamper-detection AUROC is 0.20–0.51, and a competent scrub makes journals look *less* suspicious. Compliance with requests to falsify records falls from 93% (7B) to 0% (Claude Sonnet 5). Sloppy 7B forgers over-scrub and are caught 98–100% of the time, but a frontier forger (Gemini 3 Flash) is caught only 60%. The fix is engineered redundancy: CCing each message to one random peer and sending receipts of external calls catches 97% of coordinated cover-ups at 1.5× storage, with no trusted infrastructure. In a real agent wiki log, only 5.4% of posts are naturally echoed.
+When AI agents can edit their own logs, after-the-fact oversight depends on whether someone the agent does not control also recorded what happened. In multi-agent systems the obvious second recorders are the other agents, but no one has measured how well peer agents work as witnesses against a colluding coalition. We build **Witness Networks**: 216 episodes of an 8-agent LLM swarm on four topologies, where 1–4 elicited colluders exfiltrate a canary and then edit their own records, or ask honest peers to "correct" theirs. We prove that a coordinated cover-up is detectable by cross-log consistency iff some altered record names a party outside the coalition. An exact cross-log matcher follows this bound in every scripted audit and gets 0.935 AUROC against same-episode attack-only controls. LLM monitors that read agents' journals detect the attack but not the cover-up. From 7B to Claude Sonnet 5, tamper-detection AUROC is 0.20–0.51, and a competent scrub makes journals look *less* suspicious. Compliance with requests to falsify records falls from 93% (7B) to 0% (Claude Sonnet 5). Sloppy 7B forgers over-scrub and are caught 98–100% of the time, but a frontier forger (Gemini 3 Flash) is caught only 61%. The fix is engineered redundancy: CCing each message to one random peer and sending receipts of external calls catches 97% of coordinated cover-ups at 1.5× storage, with no trusted infrastructure. In a real agent wiki log, only 5.4% of posts are naturally echoed.
 
 ## 1. Introduction
 
@@ -23,7 +23,7 @@ We ask: **when a coalition of LLM agents covers its tracks by editing its own re
 2. **A witness-coverage proposition, confirmed empirically.** A coordinated cover-up is detectable by cross-log consistency iff some altered record names a party outside the effective coalition. The exact matcher agrees with this on every scripted audit (898/898 on real-LLM episodes), and catches 666/666 detectable cover-ups.
 3. **LLM monitors do not detect cover-ups, and a competent scrub fools them, up to frontier scale.** For 7B, 14B and Claude Sonnet 5 monitors, tamper-detection AUROC is 0.40–0.51 on LLM cover-ups and 0.19–0.38 on a coordinated journal scrub. The same monitors detect the underlying attack at 0.89–0.998.
 4. **Persuadable witnesses, with a capability trend.** Honest agents agree to "correct" their own records 93% (7B), 61% (14B), 0.4% (Gemini 3 Flash) and 0% (Claude Sonnet 5) of the time. Verbatim redundancy limits the damage even at 93% compliance.
-5. **Witness by design.** Sloppy 7B forgers give cross-log checks free detection, which frontier forgers remove (60% vs 98–100%). Random CC to one peer plus receipts for external calls lifts detection of coordinated cover-ups from 42% to 97% at 1.5× storage, exactly as the proposition predicts.
+5. **Witness by design.** Sloppy 7B forgers give cross-log checks free detection, which frontier forgers remove (61% vs 98–100%). Random CC to one peer plus receipts for external calls lifts detection of coordinated cover-ups from 42% to 97% at 1.5× storage, exactly as the proposition predicts.
 6. **A real-data feasibility scan.** On the collusion.wiki revision log, natural cross-page echoes witness only 5.4% of distinctive posts, so useful witness coverage must be engineered.
 
 ## 2. Related Work
@@ -118,7 +118,12 @@ Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases 
 
 **4.2 LLM colluders exceed the bound by over-scrubbing.** B2 catches LLM-written cover-ups at 98–100%: naive 97.8%, adaptive 100%, corrupt 100% at 0 FPR. Of the cover-ups the proposition marks undetectable from peers alone, B2 caught **0/289 scripted ones, exactly as predicted**, but **86/92 (93%) LLM-written ones**. LLM colluders delete or rewrite ordinary messages that honest peers still hold, and they contradict each other. They do not forge minimally.
 
-*Frontier forgers (preliminary, n = 24 episodes).* With Gemini 3 Flash as the colluders, 15 of 24 episodes produced a cover-up. B2 caught 60% of them (53% peers only), against 98–100% for 7B colluders. Only 4 of the 11 cover-ups the proposition marks undetectable were still caught (36%, against 93% for 7B). A third of the frontier cover-ups edited only the journals, leaving the verbatim record untouched. B2 then has nothing to compare, and the Claude Sonnet 5 monitor did worse than chance on them (AUROC 0.34). The over-scrubbing bonus is therefore a property of weak forgers. Against stronger ones, detection falls back to the coverage bound, which motivates the design changes in §4.6.
+*Frontier forgers (Gemini 3 Flash colluders; 48 attack episodes in two disjoint batches).* 31 of the 48 episodes produced a cover-up, and the results differ sharply from the 7B colluders:
+- **Detection.** B2 caught 61% of the frontier cover-ups (52% with peers only), against 98–100% for 7B colluders.
+- **Journal-only edits.** A third of the frontier cover-ups (10/31) edited only the journals and left the verbatim record untouched. B2 has nothing to compare in those cases. The attack evidence does stay in the raw logs, but the journal-reading Claude Sonnet 5 monitor scored worse than chance on these cover-ups (AUROC 0.34 and 0.46 in the two batches).
+- **Raw-record edits.** Of the cover-ups that altered raw records, peers alone caught 16 of 21 (76%).
+
+The over-scrubbing bonus is therefore a property of weak forgers. Against stronger ones, detection falls back toward the coverage bound, which motivates §4.6.
 
 **4.3 LLM monitors detect the attack, not the cover-up.**
 
@@ -155,6 +160,7 @@ Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases 
 - **CC alone plateaus.** Coordinated cover-ups are caught 42% of the time with no CC and 67% with one CC peer, and adding more CC peers does not help. Every remaining miss hides only the coalition's own external call, which message CCs never see.
 - **Receipts close the gap.** CC to one random peer plus external-call receipts catches **97%** of coordinated cover-ups at 1.5× log storage. Two peers catch **99.6%** at 2.0×.
 - **Exact theory.** There were 0 false alarms in every setting, and the proposition predicted the detection rate exactly in all 30 operator × policy cells.
+- **Against real frontier forgeries.** We replayed the Gemini colluders' actual edits (the 10 raw-record cover-ups in the second frontier batch) onto CC'd logs. Peers-only detection rose from 8/10 to **10/10** with CC 1 peer + receipts. The same CC'd logs with no cover-up raised 0/10 false alarms.
 
 **Table 3. Witness by design** (coordinated scripted forgers; peers only, no trusted tool log; denominator: cover-ups that alter at least one raw record).
 
@@ -182,6 +188,7 @@ Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases 
 - **Untested auditor threats.** We did not test colluding or untrusted auditors, or forgers that know the matcher's exact key.
 - **Coarse FPR.** Thresholds rest on 96 controls, so FPR resolution is about 1%. Tamper-detection TPRs are at 0 achieved FPR for B2.
 - **B3 may be improvable.** Its negative result is for our prompts and models.
+- **Frontier checks are small.** The $10/day credit cap limits them to 31 frontier cover-ups from 48 episodes, a witness-by-design replay on 10 of them, and the monitor on 280 bundles. 95 of the Gemini cover-up calls returned unusable edits; those were treated as "no edit", which is why 17 of the 48 episodes produced no cover-up.
 - **Real data.** Identities are self-asserted labels; agents renamed often, so witness independence is unverified. Deletions include admin deletions. collusion.wiki is a **separate incident** from the HF breach (agents' use of public German wikis). The analysis is a feasibility scan, not a detection evaluation.
 
 **Future work.**
@@ -261,7 +268,7 @@ Peer agents can be effective witnesses against a colluding coalition, but only w
 | PARA | 0.51 | 0.51 |
 | SPOOF | 0.00 | 0.90 |
 
-**Compute.** Free Kaggle 2×T4 GPUs: about 4.5 GPU-hours in total across the pilots, two 7B grids, and the 14B check, for 63,514 LLM calls in the main runs. Cost: $0.
+**Compute.** Free Kaggle 2×T4 GPUs: about 4.5 GPU-hours in total across the pilots, two 7B grids, and the 14B check, for 63,514 LLM calls in the main runs. The frontier checks used $9.84 of Kaggle Model Proxy credits (Claude Sonnet 5, Gemini 3 Flash). Out-of-pocket cost: $0.
 
 ## LLM Usage Statement
 Claude (Anthropic) wrote the experiment code under the author's direction, ran literature searches, ran red-team/blue-team review agents that audited the method, mathematics, and citations (their findings led to the same-episode controls and the revised coverage analysis), and drafted this report. The author directed the research, made the design decisions, checked results against the released code and data, and rewrote the text. All quotes were checked against the cited sources.

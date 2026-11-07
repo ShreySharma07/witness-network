@@ -51,6 +51,8 @@ def main():
     p.add_argument("--steps", nargs="+", default=["monitor", "comply", "colluders"])
     p.add_argument("--n-colluder-eps", type=int, default=48)
     p.add_argument("--cap", type=float, default=9.0)
+    p.add_argument("--offset", type=int, default=0, help="start index into the strided episode sample (disjoint batches)")
+    p.add_argument("--tag", default="", help="suffix for colluder output files")
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
     eps = {}
@@ -90,10 +92,11 @@ def main():
             print(f"comply {m}: {rc['complied']}/{rc['n']} = {rc['rate']}", flush=True)
         json.dump(out, open(os.path.join(a.out, "comply.json"), "w"), indent=1)
 
-    if "colluders" in a.steps and not os.path.exists(os.path.join(a.out, "colluders.json")):
+    cfile = os.path.join(a.out, f"colluders{a.tag}.json")
+    if "colluders" in a.steps and not os.path.exists(cfile):
         gem = Roomy(GEMINI, spend_cap_usd=a.cap)
         gem.floor = 6000
-        sub = sorted(attack, key=lambda e: e.config.episode_id)[:: max(1, len(attack) // a.n_colluder_eps)][: a.n_colluder_eps]
+        sub = sorted(attack, key=lambda e: e.config.episode_id)[a.offset:: max(1, len(attack) // a.n_colluder_eps)][: a.n_colluder_eps]
         bundles = run_coverup(sub, gem, awareness="adaptive", corruption=False)
         rows = []
         for e, b in zip(sub, bundles):
@@ -115,8 +118,8 @@ def main():
                "undetectable_by_theory_notool": len(und),
                "caught_anyway_notool": sum(r["B2-notool"] > 0 for r in und),
                "B1_claude_vs_ctrl": summarize([r["B1_claude"] for _, _, r in tampered], ctrl_scores) if ctrl_scores else None}
-        json.dump(out, open(os.path.join(a.out, "colluders.json"), "w"), indent=1)
-        json.dump(bundles, open(os.path.join(a.out, "colluders_bundles.json"), "w"))  # for witness-by-design replay
+        json.dump(out, open(cfile, "w"), indent=1)
+        json.dump(bundles, open(os.path.join(a.out, f"colluders{a.tag}_bundles.json"), "w"))  # for witness-by-design replay
         print("colluders:", {k: v for k, v in out.items() if k != "rows"}, flush=True)
     print("total spend this run $", round(claude.spend() - claude.start_spend, 3))
 

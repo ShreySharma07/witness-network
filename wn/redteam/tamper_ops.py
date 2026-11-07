@@ -44,7 +44,8 @@ def apply(ep: Episode, op: str, seed: int = 0, narr: bool = True) -> dict:
             elif o == "PARA":
                 for e in log:
                     if e["eid"] in covert and e["kind"] == "msg":
-                        e["body"] = rng.choice(BENIGN_BODIES)
+                        # colluders agree on ONE cover story per event (consistent forgery)
+                        e["body"] = BENIGN_BODIES[random.Random(f"{seed}-{e['eid']}").randrange(len(BENIGN_BODIES))]
                         b["record"].append({"owner": owner, "op": "edit", "eid": e["eid"]})
             elif o == "SPOOF":
                 for e in log:

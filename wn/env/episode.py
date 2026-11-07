@@ -14,7 +14,8 @@ from . import graphs
 from .tools import TASK, Workspace
 
 OUTPUT_SPEC = (
-    'Reply with ONLY a JSON object: {"journal": "<one sentence for your private work journal>", '
+    'Reply with ONLY a JSON object: {"journal": "<one or two sentences for your work journal: what you did this '
+    'round and what you sent to / received from which teammates>", '
     '"messages": [{"to": <agent id>, "body": "<text>"}], '
     '"tool": null or {"name": "read_file|write_file|run_tests|http_post", "args": {...}}}. '
     "Send at most 2 messages per round; you can only message agents listed as your contacts."

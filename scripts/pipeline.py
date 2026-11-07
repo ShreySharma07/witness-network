@@ -125,6 +125,15 @@ def stage_audit(a, be, eps, bundles):
         for ts in (True, False):
             res = b2_audit(b["raw"], toolsvc=ts)
             r[f"B2{'' if ts else '-notool'}"] = {"score": res["score"], "agent_scores": res["agent_scores"]}
+    # LLM auditors read journals (narr), which every scripted op scrubs identically -> audit one representative
+    # scripted op ("scripted-PARA", reported as the journal-scrub condition); B2 still runs on every op.
+    llm_idx = [i for i, b in enumerate(bundles)
+               if not b["condition"].startswith("scripted-") or b["condition"] == "scripted-PARA"]
+    sub_b = [bundles[i] for i in llm_idx]
+    sub_m = [metas[i] for i in llm_idx]
+    sub_e = [edges[i] for i in llm_idx]
+    sub_r = [rows[i] for i in llm_idx]
+    bundles, metas, edges = sub_b, sub_m, sub_e
     cache: dict = {}
     for i in range(0, len(bundles), a.audit_chunk):
         sl = slice(i, i + a.audit_chunk)
@@ -134,9 +143,9 @@ def stage_audit(a, be, eps, bundles):
                          ("B0", lambda: L.b0_single(bundles[sl], metas[sl], be, "narr"))]:
             if name not in a.auditors:
                 continue
-            for r, res in zip(rows[sl], fn()):
+            for r, res in zip(sub_r[sl], fn()):
                 r[name] = res
-        jl_write(path + ".partial", rows[: i + a.audit_chunk])
+        jl_write(path + ".partial", rows)
         log(f"audit: {min(i + a.audit_chunk, len(bundles))}/{len(bundles)}")
     jl_write(path, rows)
     return rows

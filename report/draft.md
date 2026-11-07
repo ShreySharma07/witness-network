@@ -83,8 +83,8 @@ B2 and B3 attribute blame with a greedy weighted vertex cover over contradiction
 
 **Theory.** Let C be the coalition, and let a cover-up alter a set R of records. A record is held by every party it names: sender, receivers, and the tool log for tool calls. **Proposition.**
 
-- (i) If some r ∈ R names a party outside C, the exact check fires. That party's untouched copy mismatches a colluder's copy; for a fabrication, the named party's copy is missing.
-- (ii) If the cover-up is consistent and every r ∈ R names only parties in C, all copies agree and the check passes.
+- **(i)** If some r ∈ R names a party outside C, the exact check fires. That party's untouched copy mismatches a colluder's copy; for a fabrication, the named party's copy is missing.
+- **(ii)** If the cover-up is consistent and every r ∈ R names only parties in C, all copies agree and the check passes.
 
 Honest agents who agree to corruption act as coalition members, giving an effective coalition C′ = C ∪ {compliers}. *Corollary:* with the tool log on, the exfiltration call can never be hidden. Without it, a coordinated coalition evades detection iff every covert record it must remove names only colluders. Inconsistent cover-ups can also be caught with no honest witness at all, so detection may exceed the bound. That is a property of the forgers, not a counterexample.
 

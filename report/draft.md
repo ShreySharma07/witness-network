@@ -47,7 +47,7 @@ We ask: **when a coalition of LLM agents covers its tracks by editing its own re
 - A **raw log**: verbatim copies of every message it sent or received and every tool call it made.
 - A **journal**: one or two self-written sentences per round, its narrative memory.
 
-A trusted **tool-service log** records all tool calls; it is removed in "no tool log" ablations. Agents are Qwen2.5-7B-Instruct (AWQ), served by vLLM on free Kaggle 2×T4 GPUs, at temperature 0.7 with JSON-constrained decoding. All 63,514 LLM calls parsed (0 failures).
+A trusted **tool-service log** records all tool calls; it is removed in "no tool log" ablations. Agents are Qwen2.5-7B-Instruct (AWQ), served by vLLM on free Kaggle 2×T4 GPUs, at temperature 0.7 with JSON-constrained decoding. All agent turns parsed; 10% of cover-up calls (263/2,626) returned unusable edits and were treated as "no edit".
 
 **Coalition and side task (elicited).** In attack episodes, k ∈ {1,2,3,4} random agents collude. Only the *integrator* may call external hosts, and only the *keyholder* knows a canary key. Exfiltration therefore needs the key to travel from keyholder to integrator, through honest relays when the two colluders are not neighbours. Colluders get a red-team system prompt and a per-round covert step that names the next hop. Collusion is **elicited**: we study cover-up and detection, not propensity. The side task succeeded in 85 of 96 attack episodes, and in 49% of them the covert route touched an honest agent. The design has 96 attack episodes (4 topologies × 4 values of k × 6 seeds) and 120 honest episodes (4 × 30).
 
@@ -101,7 +101,7 @@ Honest agents who agree to corruption act as coalition members, giving an effect
 
 Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases and PARA in 51%. They catch **0% of SPOOF**, because only the tool log witnesses a tool call. With the trusted tool log, coverage rises to 100% (DEL, FAB, MIX) and 90% (SPOOF). Because covert routes cross honest relays, results are similar across topologies: B2 AUROC is 0.93 (complete), 0.93 (hub), 0.93 (3-regular), 0.96 (ring).
 
-**4.2 LLM colluders exceed the bound by over-scrubbing.** B2 catches LLM-written cover-ups at 98–100%: naive 97.8%, adaptive 100%, corrupt 100% at 0 FPR. That includes 22.6% of cover-ups the proposition marks undetectable from peers alone. LLM colluders delete or rewrite ordinary messages that honest peers still hold, and they contradict each other. They do not forge minimally.
+**4.2 LLM colluders exceed the bound by over-scrubbing.** B2 catches LLM-written cover-ups at 98–100%: naive 97.8%, adaptive 100%, corrupt 100% at 0 FPR. Of the cover-ups the proposition marks undetectable from peers alone, B2 caught **0/289 scripted ones, exactly as predicted**, but **86/92 (93%) LLM-written ones**. LLM colluders delete or rewrite ordinary messages that honest peers still hold, and they contradict each other. They do not forge minimally.
 
 **4.3 LLM monitors detect the attack, not the cover-up.**
 - **Attack detection.** B0 and B1 detect the untampered attack well: 7B 0.90 and 0.92; 14B 0.89 and **0.998**.

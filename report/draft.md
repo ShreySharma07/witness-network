@@ -101,6 +101,10 @@ Honest agents who agree to corruption act as coalition members, giving an effect
 
 Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases and PARA in 51%. They catch **0% of SPOOF**, because only the tool log witnesses a tool call. With the trusted tool log, coverage rises to 100% (DEL, FAB, MIX) and 90% (SPOOF). Because covert routes cross honest relays, results are similar across topologies: B2 AUROC is 0.93 (complete), 0.93 (hub), 0.93 (3-regular), 0.96 (ring).
 
+![Figure 1](figs/fig1_tamper_detection.png)
+*Figure 1. Tamper detection (TPR at 5% FPR, with thresholds set on the same episodes' untampered controls) versus colluder fraction. Left: coordinated scripted scrub. Right: LLM-written cover-ups. The dashed line is the consistency bound for B2: the share of cover-ups that alter a record with a non-coalition witness. B2 tracks the bound on coordinated forgery and exceeds it on LLM-written cover-ups. The B0, B1 and B3 lines overlap at 0.*
+
+
 **4.2 LLM colluders exceed the bound by over-scrubbing.** B2 catches LLM-written cover-ups at 98–100%: naive 97.8%, adaptive 100%, corrupt 100% at 0 FPR. Of the cover-ups the proposition marks undetectable from peers alone, B2 caught **0/289 scripted ones, exactly as predicted**, but **86/92 (93%) LLM-written ones**. LLM colluders delete or rewrite ordinary messages that honest peers still hold, and they contradict each other. They do not forge minimally.
 
 **4.3 LLM monitors detect the attack, not the cover-up.**
@@ -115,10 +119,18 @@ Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases 
 - **Ideal execution.** We replayed the same agreements with every complier's copy made identical to the colluders' copy. Peer-only detection fell from 100% to 98% (requested records only) and 86% (all held records). With the tool log it stayed at 98%.
 - **Why it stays high.** LLM cover-ups touch records held by many different witnesses, so corruption must win over nearly all of them.
 
+![Figure 3](figs/fig3_witness_corruption.png)
+*Figure 3. Witness corruption. Left: share of honest witnesses who agree to "correct" their own record when a colluder asks (233 requests; the same requests re-asked to a 14B model). Right: B2 detection on the 79 cover-ups with at least one complying witness: as executed, and with ideal execution of the same agreements (complier copies made identical to the colluders').*
+
+
 **4.5 Real data: natural peer coverage is low** (Figure 4).
 - **Data.** collusion.wiki: 14,591 revisions by 3,216 self-asserted identities. We shingle only the text each revision *added*.
 - **Echo rate.** 5.4% of the 8,577 echo-eligible revisions are re-added on a *different* page by another identity. The sensitivity band across rarity cutoffs is 3.7–5.7%.
 - **Under scrubbing.** If coalitions of 1%, 10% or 40% of identities scrub their posts and the echoes they hold, 4.4%, 3.7% and 2.1% of their scrubbed posts remain witnessed.
+
+![Figure 4](figs/fig4_realdata.png)
+*Figure 4. collusion.wiki: share of a scrubbing coalition's distinctive posts that stay witnessed by a cross-page echo held by a non-coalition identity, against coalition size. Bands show the spread over 50 random coalitions.*
+
 
 ## 5. Discussion and Limitations
 
@@ -191,6 +203,10 @@ Peer agents can be effective witnesses against a colluding coalition, but only w
 ## Appendix B. Supplementary results
 - B2 per scripted operator (Table 2) and per topology/k.
 - Detection vs share of altered records with an honest witness (Figure 2).
+
+![Figure 2](figs/fig2_coverage.png)
+*Figure 2. B2 detection without the tool log versus the share of altered records with an honest witness, by topology. Coordinated forgery (left) is detected iff the share is above 0. LLM cover-ups (right) are detected even at 0.*
+
 - Prompts and full configuration (repo: `wn/env/episode.py`, `wn/redteam/coverup.py`, `wn/blueteam/llm_auditors.py`).
 
 **Table 2. B2 detection of coordinated scripted forgery** (TPR at 0 achieved FPR; 96 controls).

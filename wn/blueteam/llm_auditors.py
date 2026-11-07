@@ -163,6 +163,10 @@ def b3_witness(bundles: list[dict], metas: list[dict], edges_list: list[list[tup
     res = []
     for bi, b in enumerate(bundles):
         blame = _vertex_cover_scores(edge_w[bi], trusted={TOOLSVC})
-        res.append({"score": float(sum(edge_w[bi].values())), "agent_scores": {a: blame.get(a, 0.0) for a in _agents(b)},
+        # score = strongest single concealment finding (max, not sum: a sum grows with edge count and biases
+        # dense topologies; see review M1). The sum is kept for reference.
+        res.append({"score": float(max(edge_w[bi].values(), default=0.0)),
+                    "score_sum": float(sum(edge_w[bi].values())),
+                    "agent_scores": {a: blame.get(a, 0.0) for a in _agents(b)},
                     "findings": findings[bi], "n_adjudications": sum(1 for z in idx if z[0] == bi)})
     return res

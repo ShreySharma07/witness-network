@@ -59,21 +59,33 @@ def make_backend(a):
 
 def stage_gen(a, be):
     path = os.path.join(a.out, "episodes.jsonl")
-    if os.path.exists(path):
-        log("gen: cached")
-        return [Episode.from_dict(d) for d in jl_read(path)]
+    if a.episodes_from and not os.path.exists(path):
+        import shutil
+        shutil.copy(a.episodes_from, path)
+        log(f"gen: seeded from {a.episodes_from}")
+    eps = [Episode.from_dict(d) for d in jl_read(path)] if os.path.exists(path) else []
+    have = {e.config.episode_id for e in eps}
     cfgs = []
-    for t in a.topologies:
-        for k in a.ks:
-            for s in range(a.neg_seeds if k == 0 else a.seeds):
-                cfgs.append(make_config(f"{t}-k{k}-s{s}", a.n, t, k, seed=1000 * k + s, placement=a.placement,
-                                        model=a.model, rounds=a.rounds))
-    log(f"gen: {len(cfgs)} episodes")
-    eps = []
+    if not eps:
+        for t in a.topologies:
+            for k in a.ks:
+                for s in range(a.neg_seeds if k == 0 else a.seeds):
+                    cfgs.append(make_config(f"{t}-k{k}-s{s}", a.n, t, k, seed=1000 * k + s, placement=a.placement,
+                                            model=a.model, rounds=a.rounds))
+    for t in a.topologies:  # extra honest episodes (more negatives -> finer FPR resolution)
+        for s in range(a.neg_seeds, a.neg_seeds + a.extra_neg):
+            eid = f"{t}-k0-s{s}"
+            if eid not in have:
+                cfgs.append(make_config(eid, a.n, t, 0, seed=s, placement=a.placement, model=a.model,
+                                        rounds=a.rounds))
+    if not cfgs:
+        log(f"gen: cached ({len(eps)})")
+        return eps
+    log(f"gen: {len(cfgs)} new episodes (+{len(eps)} cached)")
     for i in range(0, len(cfgs), a.chunk):
         eps += run_episodes(cfgs[i:i + a.chunk], be)
         jl_write(path + ".partial", [e.to_dict() for e in eps])
-        log(f"gen: {len(eps)}/{len(cfgs)} done")
+        log(f"gen: {len(eps)} total")
     jl_write(path, [e.to_dict() for e in eps])
     return eps
 
@@ -100,6 +112,9 @@ def stage_tamper(a, eps):
     out = []
     for e in eps:
         if e.config.colluders:
+            b = tamper_ops.untampered(e)  # control: attack happened, logs untouched (review C1)
+            b["condition"] = "ctrl-attack-untampered"
+            out.append(b)
             for op in tamper_ops.OPS:
                 b = tamper_ops.apply(e, op, seed=e.config.seed)
                 b["condition"] = f"scripted-{op}"
@@ -164,6 +179,8 @@ def main():
     p.add_argument("--seeds", type=int, default=6)
     p.add_argument("--neg-seeds", type=int, default=10)
     p.add_argument("--placement", default="random")
+    p.add_argument("--episodes-from", default="")
+    p.add_argument("--extra-neg", type=int, default=0)
     p.add_argument("--chunk", type=int, default=40)
     p.add_argument("--audit-chunk", type=int, default=200)
     p.add_argument("--auditors", nargs="+", default=["B0", "B1", "B3", "B3-notool"])

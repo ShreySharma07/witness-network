@@ -39,6 +39,17 @@ def shingles(text: str) -> set[str]:
     return out
 
 
+def added_text(r: dict) -> str:
+    """Only the lines this revision ADDED (insert/replace hunks), so unchanged page text carried over from
+    earlier snapshots is not mistaken for an echo (review C3)."""
+    lines = (r.get("body") or "").split("\n")
+    out = []
+    for h in r.get("hunks") or []:
+        if h.get("op") in ("insert", "replace"):
+            out += lines[h.get("b0", 0):h.get("b1", 0)]
+    return "\n".join(out)
+
+
 def load(path: str):
     revs = []
     with open(path) as f:
@@ -46,31 +57,41 @@ def load(path: str):
             r = json.loads(l)
             ident = r.get("label") or f"ip:{r.get('ip16')}"
             revs.append({"id": r["rev_id"], "who": ident, "ip": str(r.get("ip16")), "t": r.get("time") or "",
-                         "body": r.get("body") or ""})
-    revs.sort(key=lambda r: r["t"])
+                         "page": r.get("page_id"), "body": added_text(r)})
+    revs.sort(key=lambda r: (r["t"], r["id"]))
     return revs
 
 
-def echoes(revs, strict: bool = False):
-    """Return witnesses[rev_index] = set of identities (≠ author) holding a later copy of the revision's content."""
+def echoes(revs, strict: bool = False, max_df: int = MAX_DF, cross_page_only: bool = True):
+    """witnesses[i] = identities (≠ author) whose LATER revision re-adds distinctive text first added in revision i.
+    cross_page_only: count only copies on a DIFFERENT page (a quote/relay elsewhere, not the same page's history)."""
     sh = [shingles(r["body"]) for r in revs]
     df = Counter(s for ss in sh for s in ss)
     first: dict[str, int] = {}
     witnesses = defaultdict(set)
+    eligible = set()
     for i, ss in enumerate(sh):
         for s in ss:
-            if df[s] > MAX_DF:
+            if df[s] > max_df:
                 continue
             if s not in first:
                 first[s] = i
+                eligible.add(i)
             else:
                 j = first[s]
-                if revs[i]["who"] != revs[j]["who"] and (not strict or revs[i]["ip"] != revs[j]["ip"]):
-                    witnesses[j].add(revs[i]["who"])
-    return witnesses
+                if revs[i]["who"] == revs[j]["who"]:
+                    continue
+                if strict and revs[i]["ip"] == revs[j]["ip"]:
+                    continue
+                if cross_page_only and revs[i]["page"] == revs[j]["page"]:
+                    continue
+                witnesses[j].add(revs[i]["who"])
+    return witnesses, eligible
 
 
-def coverage_curve(revs, witnesses, fracs, trials=50, seed=0, weighted=True):
+def coverage_curve(revs, witnesses, fracs, trials=50, seed=0, weighted=True, eligible=None):
+    """'lo'/'hi' are the 2.5/97.5% SPREAD of single-trial values (not a CI on the mean).
+    Denominator: scrubbed revisions that are echo-ELIGIBLE (contain >=1 distinctive shingle)."""
     rng = random.Random(seed)
     ids = Counter(r["who"] for r in revs)
     pool = list(ids)
@@ -80,43 +101,46 @@ def coverage_curve(revs, witnesses, fracs, trials=50, seed=0, weighted=True):
         k = max(1, round(f * len(pool)))
         vals = []
         for _ in range(trials):
-            if weighted:  # activity-weighted sample without replacement (active agents are likelier conspirators)
+            if weighted:  # activity-weighted successive sampling (draw, reject duplicates)
                 coll = set()
                 while len(coll) < k:
                     coll.add(rng.choices(pool, weights)[0])
             else:
                 coll = set(rng.sample(pool, k))
-            scrubbed = [i for i, r in enumerate(revs) if r["who"] in coll]
+            scrubbed = [i for i, r in enumerate(revs) if r["who"] in coll and (eligible is None or i in eligible)]
             if not scrubbed:
                 continue
             ok = sum(1 for i in scrubbed if witnesses.get(i, set()) - coll)
             vals.append(ok / len(scrubbed))
         vals.sort()
         out.append({"frac": f, "k": k, "witnessed": sum(vals) / len(vals),
-                    "lo": vals[int(0.025 * len(vals))], "hi": vals[int(0.975 * len(vals)) - 1]})
+                    "spread_lo": vals[int(0.025 * len(vals))], "spread_hi": vals[min(len(vals) - 1, int(0.975 * len(vals)))]})
     return out
 
 
 def main(d: str, out_path: str):
     revs = load(d.rstrip("/") + "/revisions.jsonl")
-    w = echoes(revs)
-    n_w = sum(1 for i in range(len(revs)) if w.get(i))
+    fracs = [0.001, 0.01, 0.05, 0.1, 0.2, 0.4]
     res = {"n_revisions": len(revs), "n_identities": len({r["who"] for r in revs}),
-           "echoed_fraction": n_w / len(revs),
-           "witness_count_hist": Counter(min(len(w.get(i, ())), 5) for i in range(len(revs))),
-           "curve_weighted": coverage_curve(revs, w, [0.001, 0.01, 0.05, 0.1, 0.2, 0.4]),
-           "curve_uniform": coverage_curve(revs, w, [0.001, 0.01, 0.05, 0.1, 0.2, 0.4], weighted=False)}
-    res["witness_count_hist"] = {str(k): v for k, v in sorted(res["witness_count_hist"].items())}
-    ws = echoes(revs, strict=True)  # lower bound: echo must also come from a different /16 network
-    res["strict_echoed_fraction"] = sum(1 for i in range(len(revs)) if ws.get(i)) / len(revs)
-    res["strict_curve_weighted"] = coverage_curve(revs, ws, [0.001, 0.01, 0.05, 0.1, 0.2, 0.4])
+           "n_with_added_text": sum(1 for r in revs if r["body"].strip()), "sensitivity": {}}
+    for mdf in (2, 5, 10):
+        for xp in (True, False):
+            w, el = echoes(revs, max_df=mdf, cross_page_only=xp)
+            key = f"max_df={mdf}|{'cross_page' if xp else 'any_page'}"
+            res["sensitivity"][key] = {"eligible": len(el), "echoed": sum(1 for i in el if w.get(i)),
+                                       "echoed_frac_of_eligible": round(sum(1 for i in el if w.get(i)) / max(1, len(el)), 4),
+                                       "echoed_frac_of_all": round(sum(1 for i in el if w.get(i)) / len(revs), 4)}
+    w, el = echoes(revs)  # primary: added text, cross-page, MAX_DF=5
+    ws, els = echoes(revs, strict=True)
+    res["primary"] = res["sensitivity"][f"max_df={MAX_DF}|cross_page"]
+    res["curve_weighted"] = coverage_curve(revs, w, fracs, eligible=el)
+    res["curve_uniform"] = coverage_curve(revs, w, fracs, weighted=False, eligible=el)
+    res["strict_curve_weighted"] = coverage_curve(revs, ws, fracs, eligible=els)
     json.dump(res, open(out_path, "w"), indent=2)
-    print(json.dumps({k: v for k, v in res.items() if not k.startswith("curve")}, indent=1))
-    for c in res["strict_curve_weighted"]:
-        print(f'[strict] colluders {c["frac"]:.1%}: {c["witnessed"]:.3f} still witnessed')
+    print(json.dumps({k: v for k, v in res.items() if "curve" not in k}, indent=1))
     for c in res["curve_weighted"]:
-        print(f'colluders {c["frac"]:.1%} (k={c["k"]}): {c["witnessed"]:.3f} of scrubbed revisions still witnessed '
-              f'[{c["lo"]:.3f}, {c["hi"]:.3f}]')
+        print(f'colluders {c["frac"]:.1%} (k={c["k"]}): {c["witnessed"]:.3f} of scrubbed eligible revisions still '
+              f'witnessed cross-page [spread {c["spread_lo"]:.3f}, {c["spread_hi"]:.3f}]')
 
 
 if __name__ == "__main__":

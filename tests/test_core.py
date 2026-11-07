@@ -10,7 +10,7 @@ from wn.env.episode import make_config, run_episodes  # noqa: E402
 from wn.eval.metrics import auroc, tpr_at_fpr  # noqa: E402
 from wn.llm.backends import MockBackend, parse_json  # noqa: E402
 from wn.redteam import tamper_ops  # noqa: E402
-from wn.theory.coverage import honest_coverage, p_undetectable_pairwise  # noqa: E402
+from wn.theory.coverage import bundle_detectable, honest_coverage, tamper_coverage  # noqa: E402
 
 
 def _ep(topo="complete", k=2, seed=1):
@@ -45,10 +45,20 @@ def test_toolsvc_catches_spoof_and_blames_integrator():
     assert max(r["agent_scores"], key=r["agent_scores"].get) == str(ep.config.integrator)
 
 
-def test_theory_pairwise():
-    assert p_undetectable_pairwise(8, 0) == 0
-    assert p_undetectable_pairwise(8, 8) == 1
-    assert abs(p_undetectable_pairwise(8, 2) - 1 / 28) < 1e-9
+def test_theory_matches_b2_on_scripted_ops():
+    """Proposition: for coordinated (scripted) forgery, B2 detects iff some tampered record has a non-coalition party."""
+    import itertools
+    agree = total = 0
+    for topo, k, seed in itertools.product(["complete", "ring", "hub", "regular3"], [1, 2, 3, 4], range(3)):
+        ep = _ep(topo, k, seed)
+        for op in tamper_ops.OPS:
+            b = tamper_ops.apply(ep, op, seed=seed)
+            if not any(r["op"] != "journal" for r in b["record"]):
+                continue
+            for ts in (True, False):
+                total += 1
+                agree += (audit(b["raw"], toolsvc=ts)["score"] > 0) == bundle_detectable(ep, b, toolsvc=ts)
+    assert total > 50 and agree == total, (agree, total)
 
 
 def test_metrics():

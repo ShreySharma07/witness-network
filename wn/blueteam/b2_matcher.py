@@ -14,9 +14,10 @@ from ..schemas import TOOLSVC
 
 
 def _key(e: dict) -> str:
+    """Canonical content of a record (direction ignored). Includes round and tool result (blue-team fix)."""
     if e["kind"] == "msg":
-        return json.dumps([e["src"], sorted(e["dst"]), e["body"]])
-    return json.dumps([e["src"], e["tool"], sorted(e["args"].items())])
+        return json.dumps([e["round"], e["src"], sorted(e["dst"]), e["body"]])
+    return json.dumps([e["round"], e["src"], e["tool"], sorted(e["args"].items()), e.get("result", "")])
 
 
 def _parties(e: dict, toolsvc: bool) -> set[str]:
@@ -32,12 +33,19 @@ def audit(raw: dict[str, list[dict]], toolsvc: bool = True) -> dict:
     logs = {o: l for o, l in raw.items() if toolsvc or o != TOOLSVC}
     copies: dict[str, dict[str, str]] = defaultdict(dict)  # eid -> owner -> key
     meta: dict[str, dict] = {}
-    for owner, log in logs.items():
-        for e in log:
-            copies[e["eid"]][owner] = _key(e)
-            meta.setdefault(e["eid"], e)
     edges: Counter = Counter()
     incidents = []
+    for owner, log in logs.items():
+        seen_here: set = set()
+        for e in log:
+            if e["eid"] in seen_here:  # one log holding two copies of the same record is itself an inconsistency
+                incidents.append({"eid": e["eid"], "a": owner, "b": owner, "type": "duplicate"})
+                if owner != TOOLSVC:
+                    edges[(TOOLSVC, owner)] += 1
+                continue
+            seen_here.add(e["eid"])
+            copies[e["eid"]][owner] = _key(e)
+            meta.setdefault(e["eid"], e)
     for eid, have in copies.items():
         parties = set().union(*(_parties(json.loads(json.dumps(meta[eid])), toolsvc) for _ in [0]))
         # union of parties named by any copy (a forged copy may name different parties)

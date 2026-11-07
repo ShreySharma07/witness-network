@@ -1,10 +1,10 @@
-"""Paper figures from pipeline outputs.
+"""Paper figures (revised after review). Thresholds are set on the SAME episodes' attack-only controls.
 
-Fig 1  detection (TPR @ 5% FPR) vs colluder fraction, per auditor, two panels (competent scrub | LLM cover-up),
-       dashed = witness-coverage upper bound (share of positives with >=1 honest witness of a covert event).
-Fig 2  detection vs honest PEER coverage (no tool log): do all topologies collapse onto one curve?
-Fig 3  witness corruption: compliance rate and detection with vs without corruption.
-Usage: python scripts/make_figures.py --out <pipeline out dir> --figs report/figs
+Fig 1  tamper detection (TPR @ 5% FPR) vs colluder fraction; left = coordinated scrub, right = LLM cover-ups.
+       Dashed = consistency bound for B2: share of positives with a non-coalition witness of a touched record.
+Fig 2  B2 (no tool log) detection vs tamper coverage, per topology.
+Fig 3  witness corruption: compliance, and detection with vs without corruption.
+Fig 4  real data: share of scrubbed posts still witnessed vs coalition size (collusion.wiki).
 """
 from __future__ import annotations
 
@@ -20,89 +20,74 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from analyze import load  # noqa: E402
-from wn.eval.metrics import tpr_at_fpr  # noqa: E402
+from analyze import load, threshold_tpr  # noqa: E402
 
-# validated categorical slots 1-5 (fixed order) + neutral for theory; text never wears series colour
 SERIES = {"B0": ("#2a78d6", "o", "B0 single-log"), "B1": ("#eb6834", "s", "B1 all-logs"),
           "B2": ("#1baf7a", "^", "B2 exact match"), "B3": ("#eda100", "D", "B3 cross-witness (ours)"),
-          "B3-corrupt": ("#e87ba4", "v", "B3 under witness corruption")}
+          "X": ("#e87ba4", "v", "")}
 INK, MUTED, GRID, THEORY = "#0b0b0b", "#52514e", "#e6e5e0", "#8a8983"
 plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.labelcolor": INK, "xtick.color": MUTED,
                      "ytick.color": MUTED, "axes.spines.top": False, "axes.spines.right": False,
-                     "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.6, "figure.dpi": 150})
+                     "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.6, "figure.dpi": 200})
 FPR = 0.05
 
 
-def neg_scores(rows, aud):
-    return [r[aud]["score"] for r in rows if r["condition"].startswith("neg") and aud in r]
+def _label(ax, x, y, t):
+    ax.__dict__.setdefault("_wn", []).append([x, y, t])
 
 
-def is_pos(r, conds):
-    return r["condition"] in conds and r["n_record"] > 0
-
-
-def tpr_by(rows, conds, aud, key):
-    ns = neg_scores(rows, aud)
-    out = {}
-    groups = defaultdict(list)
-    for r in rows:
-        if is_pos(r, conds) and aud in r:
-            groups[r[key]].append(r[aud]["score"])
-    for k, ps in sorted(groups.items()):
-        out[k] = (tpr_at_fpr(ps, ns, FPR), len(ps))
-    return out
-
-
-def theory_by_k(rows, conds, cov_key="coverage"):
-    g = defaultdict(list)
-    for r in rows:
-        if is_pos(r, conds):
-            c = r[cov_key]
-            g[r["k"]].append(1.0 if (c == c and c > 0) else 0.0)
-    return {k: sum(v) / len(v) for k, v in sorted(g.items())}
-
-
-def _label_end(ax, xs, ys, text, color):
-    """Queue an end-of-line label; _flush_labels spreads them so none collide."""
-    if xs:
-        ax.__dict__.setdefault("_wn_labels", []).append([xs[-1], ys[-1], text])
-
-
-def _flush_labels(ax, min_gap=0.07):
-    labs = sorted(ax.__dict__.pop("_wn_labels", []), key=lambda l: l[1])
+def _flush(ax, gap=0.07):
+    labs = sorted(ax.__dict__.pop("_wn", []), key=lambda l: l[1])
     for i in range(1, len(labs)):
-        if labs[i][1] - labs[i - 1][1] < min_gap:
-            labs[i][1] = labs[i - 1][1] + min_gap
+        if labs[i][1] - labs[i - 1][1] < gap:
+            labs[i][1] = labs[i - 1][1] + gap
     for x, y, t in labs:
         ax.annotate(t, (x, y), xytext=(5, 0), textcoords="offset points", fontsize=7, color=INK, va="center",
                     annotation_clip=False)
 
 
-def fig1(rows, n_agents, path):
-    panels = [("Competent forger (journal scrub)", {"scripted-PARA"}),
-              ("LLM cover-up (naive + adaptive)", {"organic-naive", "organic-adaptive"})]
+def thr(ctrl, aud):
+    ns = [r[aud]["score"] for r in ctrl if aud in r]
+    if not ns:
+        return None
+    for t in sorted(set(ns)) + [max(ns) + 1e-9]:
+        if sum(n > t for n in ns) / len(ns) <= FPR:
+            return t
+
+
+def fig1(rows, n, path):
+    ctrl = [r for r in rows if r["condition"] == "ctrl-attack-untampered"]
+    panels = [("Coordinated forger (scripted scrub)", {"scripted-PARA"}),
+              ("LLM cover-ups (naive + adaptive)", {"organic-naive", "organic-adaptive"})]
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.0), sharey=True)
     for ax, (title, conds) in zip(axes, panels):
-        th = theory_by_k(rows, conds)
-        ax.plot([k / n_agents for k in th], list(th.values()), ls="--", color=THEORY, lw=1.5, zorder=1)
-        if th:
-            _label_end(ax, [list(th)[-1] / n_agents], [list(th.values())[-1]], "coverage bound", THEORY)
+        pos = [r for r in rows if r["condition"] in conds and r["n_record"] > 0]
+        ks = sorted({r["k"] for r in pos})
+        bound = [sum(r.get("detectable") is True for r in pos if r["k"] == k) / max(1, sum(r["k"] == k for r in pos))
+                 for k in ks]
+        bound = [b + (1 - b) * FPR for b in bound]
+        ax.plot([k / n for k in ks], bound, ls="--", color=THEORY, lw=1.5, zorder=1)
+        if ks:
+            _label(ax, ks[-1] / n, bound[-1], "B2 bound")
         for aud in ["B0", "B1", "B2", "B3"]:
-            d = tpr_by(rows, conds, aud, "k")
-            if not d:
+            t = thr(ctrl, aud)
+            if t is None:
                 continue
-            xs = [k / n_agents for k in d]
-            ys = [v[0] for v in d.values()]
+            xs, ys = [], []
+            for k in ks:
+                g = [r for r in pos if r["k"] == k and aud in r]
+                if g:
+                    xs.append(k / n)
+                    ys.append(sum(r[aud]["score"] > t for r in g) / len(g))
             col, mk, lab = SERIES[aud]
-            ax.plot(xs, ys, color=col, marker=mk, ms=5, lw=2, label=lab, zorder=3,
-                    markeredgecolor="#fcfcfb", markeredgewidth=1)
-            _label_end(ax, xs, ys, aud, col)
-        _flush_labels(ax)
+            ax.plot(xs, ys, color=col, marker=mk, ms=5, lw=2, label=lab, zorder=3, markeredgecolor="#fcfcfb")
+            if xs:
+                _label(ax, xs[-1], ys[-1], aud)
+        _flush(ax)
         ax.set_title(title, fontsize=9, color=INK, loc="left")
         ax.set_xlabel("colluder fraction k/N")
-        ax.set_ylim(-0.03, 1.05)
-    axes[0].set_ylabel(f"detection rate (TPR @ {int(FPR*100)}% FPR)")
+        ax.set_ylim(-0.03, 1.08)
+    axes[0].set_ylabel(f"tamper detection (TPR @ {int(FPR*100)}% FPR)")
     h, l = axes[0].get_legend_handles_labels()
     fig.legend(h, l, loc="lower center", ncol=4, frameon=False, fontsize=7, bbox_to_anchor=(0.5, -0.04))
     fig.tight_layout(rect=(0, 0.08, 1, 1))
@@ -111,32 +96,33 @@ def fig1(rows, n_agents, path):
 
 
 def fig2(rows, path):
-    conds = {"scripted-PARA", "organic-naive", "organic-adaptive"}
-    bins = [(-0.01, 0.0, "0"), (0.0, 0.5, "(0, .5]"), (0.5, 1.0, "(.5, 1]")]
-    topos = sorted({r["topology"] for r in rows})
+    ctrl = [r for r in rows if r["condition"] == "ctrl-attack-untampered"]
+    pos = [r for r in rows if r["k"] > 0 and r["n_record"] > 0 and not r["condition"].startswith("ctrl")
+           and r.get("tcov_notool") == r.get("tcov_notool") and r.get("tcov_notool") is not None]
+    bins = [(-0.01, 0.0, "0"), (0.0, 0.34, "(0, 1/3]"), (0.34, 0.67, "(1/3, 2/3]"), (0.67, 1.0, "(2/3, 1]")]
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.8), sharey=True)
-    for ax, aud in zip(axes, ["B2-notool", "B3-notool"]):
-        ns = neg_scores(rows, aud)
-        for ti, t in enumerate(topos):
+    for ax, (title, conds) in zip(axes, [("scripted (coordinated)", lambda c: c.startswith("scripted")),
+                                          ("LLM-organic", lambda c: c.startswith("organic"))]):
+        t = thr(ctrl, "B2-notool")
+        for ti, topo in enumerate(sorted({r["topology"] for r in rows})):
             xs, ys = [], []
             for bi, (lo, hi, _) in enumerate(bins):
-                ps = [r[aud]["score"] for r in rows if is_pos(r, conds) and aud in r and r["topology"] == t
-                      and r["coverage_notool"] == r["coverage_notool"] and lo < r["coverage_notool"] <= hi]
-                if len(ps) >= 3:
+                g = [r for r in pos if conds(r["condition"]) and r["topology"] == topo and lo < r["tcov_notool"] <= hi]
+                if len(g) >= 3:
                     xs.append(bi)
-                    ys.append(tpr_at_fpr(ps, ns, FPR))
-            col = list(SERIES.values())[ti][0]
-            mk = list(SERIES.values())[ti][1]
-            ax.plot(xs, ys, color=col, marker=mk, ms=5, lw=2, label=t, markeredgecolor="#fcfcfb")
-            _label_end(ax, xs, ys, t, col)
-        _flush_labels(ax)
-        ax.set_xticks(range(len(bins)), [b[2] for b in bins])
-        ax.set_xlabel("honest peer coverage of covert events")
-        ax.set_title(f"{aud.replace('-notool', '')} without tool log", fontsize=9, color=INK, loc="left")
-        ax.set_ylim(-0.03, 1.05)
+                    ys.append(sum(r["B2-notool"]["score"] > t for r in g) / len(g))
+            col, mk, _ = list(SERIES.values())[ti]
+            ax.plot(xs, ys, color=col, marker=mk, ms=5, lw=2, label=topo, markeredgecolor="#fcfcfb")
+            if xs:
+                _label(ax, xs[-1], ys[-1], topo)
+        _flush(ax)
+        ax.set_xticks(range(len(bins)), [b[2] for b in bins], fontsize=7)
+        ax.set_xlabel("share of touched records with an honest witness")
+        ax.set_title(f"B2 without tool log: {title}", fontsize=9, color=INK, loc="left")
+        ax.set_ylim(-0.03, 1.08)
     axes[0].set_ylabel(f"detection (TPR @ {int(FPR*100)}% FPR)")
     h, l = axes[0].get_legend_handles_labels()
-    fig.legend(h, l, loc="lower center", ncol=4, frameon=False, fontsize=7, bbox_to_anchor=(0.5, -0.04))
+    fig.legend(h, l, loc="lower center", ncol=4, frameon=False, fontsize=7, bbox_to_anchor=(0.5, -0.05))
     fig.tight_layout(rect=(0, 0.08, 1, 1))
     fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
@@ -144,31 +130,60 @@ def fig2(rows, path):
 
 def fig3(rows, coverups, path):
     reqs = [q for b in coverups for q in b.get("requests", []) if "comply" in q]
-    rate = sum(q["comply"] for q in reqs) / len(reqs) if reqs else float("nan")
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.6), gridspec_kw={"width_ratios": [1, 2]})
+    if not reqs:
+        print("fig3 skipped: no corruption requests")
+        return
+    rate = sum(q["comply"] for q in reqs) / len(reqs)
+    ctrl = [r for r in rows if r["condition"] == "ctrl-attack-untampered"]
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.6), gridspec_kw={"width_ratios": [1, 2.2]})
     ax = axes[0]
-    ax.bar([0], [rate], color=SERIES["B3-corrupt"][0], width=0.5)
-    ax.set_xticks([0], ["honest witnesses\nasked to 'correct'"])
+    ax.bar([0], [rate], color=SERIES["X"][0], width=0.5)
+    ax.set_xticks([0], ["honest witnesses\nasked to 'correct'"], fontsize=7)
     ax.set_ylim(0, 1)
     ax.set_ylabel("compliance rate")
     ax.annotate(f"{rate:.0%} (n={len(reqs)})", (0, rate), xytext=(0, 3), textcoords="offset points", ha="center",
                 fontsize=8, color=INK)
     ax = axes[1]
     auds = ["B2-notool", "B3-notool", "B2", "B3"]
+    corrupted_ids = {(b["episode_id"]) for b in coverups if any(q.get("comply") is not None for q in b.get("requests", []))}
     w = 0.38
-    for j, (cond, lab, col) in enumerate([("organic-adaptive", "no corruption", SERIES["B3"][0]),
-                                          ("organic-corrupt", "with corruption", SERIES["B3-corrupt"][0])]):
+    for j, (cond, lab, col) in enumerate([("organic-adaptive", "adaptive, no corruption", SERIES["B3"][0]),
+                                          ("organic-corrupt", "adaptive + corruption", SERIES["X"][0])]):
         vals = []
         for aud in auds:
-            ns = neg_scores(rows, aud)
-            ps = [r[aud]["score"] for r in rows if is_pos(r, {cond}) and aud in r and r["coverage_notool"] > 0]
-            vals.append(tpr_at_fpr(ps, ns, FPR) if ps else float("nan"))
-        xs = [i + (j - 0.5) * w for i in range(len(auds))]
-        ax.bar(xs, vals, width=w - 0.04, color=col, label=lab)
+            t = thr(ctrl, aud)
+            g = [r for r in rows if r["condition"] == cond and aud in r and r["episode_id"] in corrupted_ids]
+            vals.append(sum(r[aud]["score"] > t for r in g) / len(g) if g and t is not None else float("nan"))
+        ax.bar([i + (j - 0.5) * w for i in range(len(auds))], vals, width=w - 0.04, color=col, label=lab)
     ax.set_xticks(range(len(auds)), [a.replace("-notool", "\n(no tool log)") for a in auds], fontsize=7)
     ax.set_ylim(0, 1.05)
-    ax.set_ylabel(f"detection (TPR @ {int(FPR*100)}% FPR)")
-    ax.set_title("episodes with >=1 honest peer witness", fontsize=9, color=INK, loc="left")
+    ax.set_ylabel(f"tamper detection (TPR @ {int(FPR*100)}% FPR)")
+    ax.set_title(f"episodes where corruption was attempted (n={len(corrupted_ids)})", fontsize=9, color=INK,
+                 loc="left")
+    ax.legend(frameon=False, fontsize=7)
+    fig.tight_layout()
+    fig.savefig(path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def fig4(real_path, path):
+    if not os.path.exists(real_path):
+        return
+    res = json.load(open(real_path))
+    fig, ax = plt.subplots(figsize=(3.6, 2.6))
+    for key, (col, mk, lab) in [("curve_weighted", (SERIES["B0"][0], "o", "activity-weighted coalition")),
+                                ("curve_uniform", (SERIES["B1"][0], "s", "uniform coalition"))]:
+        c = res[key]
+        xs = [p["frac"] * 100 for p in c]
+        ys = [p["witnessed"] * 100 for p in c]
+        ax.plot(xs, ys, color=col, marker=mk, ms=5, lw=2, label=lab, markeredgecolor="#fcfcfb")
+        ax.fill_between(xs, [p["spread_lo"] * 100 for p in c], [p["spread_hi"] * 100 for p in c], color=col,
+                        alpha=0.12, lw=0)
+    ax.set_xscale("log")
+    ax.set_xlabel("coalition size (% of identities, log)")
+    ax.set_ylabel("scrubbed posts still witnessed (%)")
+    ax.set_ylim(0, max(10, ax.get_ylim()[1]))
+    ax.set_title("collusion.wiki: cross-page echoes", fontsize=9, color=INK, loc="left")
     ax.legend(frameon=False, fontsize=7)
     fig.tight_layout()
     fig.savefig(path, bbox_inches="tight")
@@ -179,15 +194,17 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--out", required=True)
     p.add_argument("--figs", default="report/figs")
+    p.add_argument("--real", default="results/realdata/collusion_wiki_coverage.json")
     a = p.parse_args()
     os.makedirs(a.figs, exist_ok=True)
     eps, rows = load(a.out)
     n = next(iter(eps.values())).config.n_agents
-    fig1(rows, n, os.path.join(a.figs, "fig1_detection_vs_colluders.png"))
-    fig2(rows, os.path.join(a.figs, "fig2_coverage_collapse.png"))
+    fig1(rows, n, os.path.join(a.figs, "fig1_tamper_detection.png"))
+    fig2(rows, os.path.join(a.figs, "fig2_coverage.png"))
     cov = os.path.join(a.out, "coverups.jsonl")
     coverups = [json.loads(l) for l in open(cov)] if os.path.exists(cov) else []
     fig3(rows, coverups, os.path.join(a.figs, "fig3_witness_corruption.png"))
+    fig4(a.real, os.path.join(a.figs, "fig4_realdata.png"))
     print("figures written to", a.figs)
 
 

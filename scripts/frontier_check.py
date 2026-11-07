@@ -26,9 +26,12 @@ GEMINI = "google/gemini-3-flash-preview"
 
 
 class Roomy(KaggleProxyBackend):
-    """Reasoning models spend hidden tokens: give every call a generous completion budget."""
+    """Reasoning models spend hidden tokens: give every call a generous completion budget.
+    (2048 was enough for short verdicts but truncated long cover-up plans; colluders use 6000.)"""
+    floor = 2048
+
     def chat(self, batch, max_tokens=400, temperature=0.7, seed=0):
-        return super().chat(batch, max_tokens=max(max_tokens, 2048), temperature=temperature, seed=seed)
+        return super().chat(batch, max_tokens=max(max_tokens, self.floor), temperature=temperature, seed=seed)
 
 
 def tpr_at_zero_fp(ps, ns):
@@ -89,6 +92,7 @@ def main():
 
     if "colluders" in a.steps and not os.path.exists(os.path.join(a.out, "colluders.json")):
         gem = Roomy(GEMINI, spend_cap_usd=a.cap)
+        gem.floor = 6000
         sub = sorted(attack, key=lambda e: e.config.episode_id)[:: max(1, len(attack) // a.n_colluder_eps)][: a.n_colluder_eps]
         bundles = run_coverup(sub, gem, awareness="adaptive", corruption=False)
         rows = []

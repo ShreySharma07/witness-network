@@ -18,10 +18,8 @@ from ..schemas import TOOLSVC, Episode
 
 
 def _parties_of_entry(e: dict, toolsvc: bool) -> set[str]:
-    p = {str(e["src"])}
-    if e.get("kind") == "msg":
-        p |= {str(d) for d in e.get("dst", [])}
-    elif toolsvc:
+    p = {str(e["src"])} | {str(d) for d in e.get("dst", [])}
+    if e.get("kind") != "msg" and toolsvc:
         p.add(TOOLSVC)
     return p
 

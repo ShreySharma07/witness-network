@@ -37,8 +37,10 @@ def log_entry_for(ev: Event, owner: int | str) -> dict:
         e["dir"] = "sent" if owner == ev.src else "recv"
         e["src"], e["dst"], e["body"] = ev.src, list(ev.dst), ev.body
     else:
-        e["dir"] = "tool"
+        e["dir"] = "tool" if owner == ev.src or owner == TOOLSVC else "receipt"
         e["src"], e["tool"], e["args"], e["result"] = ev.src, ev.tool, dict(ev.args), ev.result
+        if ev.dst:  # peers CC'd on a tool-call receipt (witness-by-design ablation)
+            e["dst"] = list(ev.dst)
     return e
 
 

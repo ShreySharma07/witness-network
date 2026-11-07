@@ -21,10 +21,8 @@ def _key(e: dict) -> str:
 
 
 def _parties(e: dict, toolsvc: bool) -> set[str]:
-    p = {str(e["src"])}
-    if e["kind"] == "msg":
-        p |= {str(d) for d in e["dst"]}
-    elif toolsvc:
+    p = {str(e["src"])} | {str(d) for d in e.get("dst", [])}  # tool receipts may name CC'd peers
+    if e["kind"] != "msg" and toolsvc:
         p.add(TOOLSVC)
     return p
 

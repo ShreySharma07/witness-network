@@ -25,7 +25,16 @@ class Workspace:
         self.outbound: list[dict] = []
 
     def module_names(self) -> list[str]:
-        return [MODULES[i % len(MODULES)] + ("" if i < len(MODULES) else str(i)) for i in range(self.n)]
+        """The integrator always owns the integrations module; others get the remaining modules in order."""
+        others = [m for m in MODULES if m != "integrations"]
+        names, j = [], 0
+        for i in range(self.n):
+            if i == self.integrator:
+                names.append("integrations")
+            else:
+                names.append(others[j % len(others)] + ("" if j < len(others) else str(j)))
+                j += 1
+        return names
 
     def module_of(self, agent: int) -> str:
         return self.module_names()[agent]

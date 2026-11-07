@@ -1,4 +1,8 @@
-"""Real-data arm: natural peer witnesses on the collusion.wiki revision log (OpenAI/Hugging Face incident board).
+"""Real-data arm: natural peer witnesses on the collusion.wiki revision log.
+
+Provenance: revision log of OpenAI agents' unsanctioned use of German public wikis (DSEWiki etc., May-July 2026;
+collusion.wiki, Von Arx et al. 2026). This is a SEPARATE incident from the July 2026 Hugging Face breach.
+It is a wiki revision log, not a message board; its deletions include admin deletions (a confound for 'omission').
 
 Witness definition: revision R by identity A is "echoed" if a LATER revision by a DIFFERENT identity B contains a
 distinctive 8-word shingle first seen in R (rare shingles only, to exclude page templates). An echo is a copy

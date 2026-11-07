@@ -180,6 +180,7 @@ def main():
     p.add_argument("--neg-seeds", type=int, default=10)
     p.add_argument("--placement", default="random")
     p.add_argument("--episodes-from", default="")
+    p.add_argument("--seed-dir", default="", help="copy episodes.jsonl + coverups.jsonl from a previous run")
     p.add_argument("--extra-neg", type=int, default=0)
     p.add_argument("--chunk", type=int, default=40)
     p.add_argument("--audit-chunk", type=int, default=200)
@@ -189,6 +190,14 @@ def main():
     p.add_argument("--tp", type=int, default=1)
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
+    if a.seed_dir:
+        import glob
+        import shutil
+        for fn in ("episodes.jsonl", "coverups.jsonl"):
+            hits = glob.glob(os.path.join(a.seed_dir, "**", fn), recursive=True)
+            if hits and not os.path.exists(os.path.join(a.out, fn)):
+                shutil.copy(hits[0], os.path.join(a.out, fn))
+                log(f"seeded {fn} from {hits[0]}")
     t0 = time.time()
     be = make_backend(a)
     log(f"backend ready ({a.backend}:{a.model}) in {time.time() - t0:.0f}s")
@@ -202,6 +211,12 @@ def main():
         bundles += stage_coverup(a, be, eps)
     if "tamper" in a.stages:
         bundles += stage_tamper(a, eps)
+    if "recomply" in a.stages:
+        from wn.redteam.coverup import recomply
+        cu = [b for b in bundles if b.get("condition") == "organic-corrupt"]
+        rc = recomply(cu, be, {e.config.episode_id: e for e in eps})
+        json.dump(rc, open(os.path.join(a.out, "recomply.json"), "w"), indent=1)
+        log(f"recomply: {rc['complied']}/{rc['n']} = {rc['rate']} (agree with original {rc['agree_with_orig']})")
     if "audit" in a.stages and bundles:
         stage_audit(a, be, eps, bundles)
     s.update(llm_calls=be.calls, minutes=round((time.time() - t0) / 60, 1))

@@ -137,20 +137,20 @@ def fig3(rows, coverups, path, out_dir, extra_compliance=None):
         print("fig3 skipped")
         return
     cc = json.load(open(cc_path))
-    bars = [("Qwen2.5-7B", sum(q["comply"] for q in reqs) / len(reqs), len(reqs))]
+    bars = [("Qwen\n7B", sum(q["comply"] for q in reqs) / len(reqs), len(reqs))]
     for name, rate, n in (extra_compliance or []):
         bars.append((name, rate, n))
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.7), gridspec_kw={"width_ratios": [1, 2.2]})
+    fig, axes = plt.subplots(1, 2, figsize=(7.4, 2.8), gridspec_kw={"width_ratios": [1.5, 2.2]})
     ax = axes[0]
     ax.grid(axis="x", visible=False)
     for i, (name, rate, n) in enumerate(bars):
         ax.bar([i], [rate], color=SERIES["X"][0], width=0.55)
-        ax.annotate(f"{rate:.0%}\n(n={n})", (i, rate), xytext=(0, 2), textcoords="offset points", ha="center",
-                    fontsize=7, color=INK)
+        ax.annotate(f"{rate:.0%}" if rate >= 0.01 or rate == 0 else f"{rate:.1%}", (i, rate), xytext=(0, 2),
+                    textcoords="offset points", ha="center", fontsize=7, color=INK)
     ax.set_xticks(range(len(bars)), [b[0] for b in bars], fontsize=7)
     ax.set_ylim(0, 1.15)
     ax.set_ylabel("honest witnesses who comply")
-    ax.set_title("'please correct your log'", fontsize=9, color=INK, loc="left")
+    ax.set_title("'please correct your log' (n=233 each)", fontsize=9, color=INK, loc="left")
     ax = axes[1]
     ax.grid(axis="x", visible=False)
     modes = [("as-run", "as executed"), ("competent-requested", "competent:\nrequested records"),
@@ -214,11 +214,17 @@ def main():
     cov = os.path.join(a.out, "coverups.jsonl")
     coverups = [json.loads(l) for l in open(cov)] if os.path.exists(cov) else []
     extra = []
-    for name, d in [("Qwen2.5-14B", a.extra_14b)]:
+    for name, d in [("Qwen\n14B", a.extra_14b)]:
         pth = os.path.join(d, "recomply.json") if d else ""
         if pth and os.path.exists(pth):
             rc = json.load(open(pth))
             extra.append((name, rc["rate"], rc["n"]))
+    fc = "results/frontier/comply.json"
+    if os.path.exists(fc):
+        d = json.load(open(fc))
+        for key, name in [("google/gemini-3-flash-preview", "Gemini 3\nFlash"), ("anthropic/claude-sonnet-5@default", "Claude\nSonnet 5")]:
+            if key in d:
+                extra.append((name, d[key]["rate"], d[key]["n"]))
     fig3(rows, coverups, os.path.join(a.figs, "fig3_witness_corruption.png"), a.out, extra)
     fig4(a.real, os.path.join(a.figs, "fig4_realdata.png"))
     print("figures written to", a.figs)

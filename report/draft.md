@@ -19,12 +19,11 @@ We ask: **when a coalition of LLM agents covers its tracks by editing its own re
 
 **Our main contributions are:**
 
-1. **An open testbed and controlled measurement.** We run an 8-agent LLM swarm on 4 topologies, with elicited coalitions of size 1–4. There are three red-team tiers: coordinated scripted forgery, LLM-written cover-ups (naive and adaptive), and witness corruption. We test four auditors, each with and without a trusted tool log. Every cover-up is compared against the *same episode without the cover-up*, so detecting the cover-up is separated from detecting the attack. All of it runs on free GPUs with open-weight models.
-2. **A witness-coverage proposition, confirmed empirically.** A coordinated cover-up is detectable by cross-log consistency iff some altered record names a party outside the effective coalition. The exact matcher agrees with this on every scripted audit (898/898 on real-LLM episodes), and catches 666/666 detectable cover-ups.
-3. **LLM monitors do not detect cover-ups, and a competent scrub fools them, up to frontier scale.** For 7B, 14B and Claude Sonnet 5 monitors, tamper-detection AUROC is 0.40–0.51 on LLM cover-ups and 0.19–0.38 on a coordinated journal scrub. The same monitors detect the underlying attack at 0.89–0.998.
-4. **Persuadable witnesses, with a capability trend.** Honest agents agree to "correct" their own records 93% (7B), 61% (14B), 0.4% (Gemini 3 Flash) and 0% (Claude Sonnet 5) of the time. Verbatim redundancy limits the damage even at 93% compliance.
-5. **Witness by design.** Sloppy 7B forgers give cross-log checks free detection, which frontier forgers remove (61% vs 98–100%). Random CC to one peer plus receipts for external calls lifts detection of coordinated cover-ups from 42% to 97% at 1.5× storage, exactly as the proposition predicts.
-6. **A real-data feasibility scan.** On the collusion.wiki revision log, natural cross-page echoes witness only 5.4% of distinctive posts, so useful witness coverage must be engineered.
+1. **Testbed.** An open, $0-compute testbed: an 8-agent LLM swarm on 4 topologies, coalitions of 1–4, three red-team tiers, and four auditors. Each cover-up is compared against *the same episode untampered*, which separates detecting the cover-up from detecting the attack.
+2. **Theory, confirmed.** A coordinated cover-up is detectable by cross-log consistency iff an altered record names a party outside the effective coalition. The exact matcher agrees on every scripted audit (898/898) and catches 666/666 detectable cover-ups.
+3. **LLM monitors miss cover-ups at every scale.** From 7B to Claude Sonnet 5, tamper-detection AUROC is 0.19–0.51, though the same monitors detect the attack at up to 0.998.
+4. **Persuadable witnesses, with a capability trend.** Compliance with falsification requests falls from 93% (7B) to 0% (Claude Sonnet 5).
+5. **Witness by design.** Frontier forgers erase the "free" detection that sloppy 7B forgers give away (61% vs 98–100%). One random CC peer plus receipts for external calls lifts detection of coordinated cover-ups from 42% to 97% at 1.5× storage, as the theory predicts.
 
 ## 2. Related Work
 
@@ -34,18 +33,11 @@ We ask: **when a coalition of LLM agents covers its tracks by editing its own re
 
 **Multi-agent control and collusion.** AI control evaluates protocols against intentionally subversive models [7]. Makins et al. show distributed attacks evade per-agent monitors, and that a joint monitor is "not deployable in practice: a defender does not know which commits belong to the same attack" [4]. Gans & Holden name "agents that coordinate their concealment" a natural next step [5]. TIDE shows false testimony from one deceptive agent spreads through honest agents [13]. We test a related failure: honest agents being asked to edit their *own records*. Detectors that read messages or activations for collusion [15] are complementary, since they do not address forged records.
 
-| Work | Agents | Goal | Witnesses | Coalition measured? |
-|---|---|---|---|---|
-| Qin et al. [1] | single (peer imitation) | prevention | infrastructure | no |
-| Hearsay [2] | single harness | detection | trusted ledger | no |
-| Sello [3] | single agent, many services | attestation | services | named, unformalized |
-| PeerReview [8] | distributed nodes | detection | deterministic peers | assumed bound |
-| Makins et al. [4] | multi-agent | per-commit detection | none | attack splitting |
-| **This work** | **8 LLM agents, 4 topologies** | **detection + attribution** | **LLM peers + tool log** | **k = 1–4, + corruption** |
+Table 4 (Appendix B) compares these works along four axes.
 
 ## 3. Methods
 
-![Figure 0](figs/fig0_overview.png)
+![Figure 0](figs/fig0_overview.png){width=100%}
 *Figure 0. Setup. (1) Colluders (orange) relay a key, often through honest agents, and the integrator posts it externally. Every message is copied in both the sender's and the receiver's raw log, and a trusted tool log records tool calls. (2) Colluders rewrite only their own records and may ask honest witnesses to "correct" theirs. (3) B2 compares the copies each party holds, so a mismatch exposes the cover-up. LLM monitors read agents' journals, which a cover-up can make look clean.*
 
 **Threat model.** Each agent stores its own raw log and journal on storage it controls, as local agent traces are stored in practice [1]. There is no trusted central message log. Colluders can rewrite anything in their own records, but cannot touch another agent's storage. An honest agent's copy is evidence only because its owner does not edit it, and that assumption is exactly what witness corruption attacks. The optional tool log is the one trusted component: it stands in for provider- or gateway-side logging of tool calls.
@@ -61,14 +53,9 @@ A trusted **tool-service log** records all tool calls; it is removed in "no tool
 
 **Cover-ups (red team).**
 
-- **(a) Scripted, coordinated.** Each operator is applied identically to every colluder's records, and also scrubs covert journal lines:
-  - DEL deletes covert records.
-  - FAB replaces them with a fabricated benign message, mirrored into colluding receivers.
-  - PARA rewrites covert messages to one shared cover story.
-  - SPOOF rewrites tool arguments.
-  - MIX applies two of these.
-- **(b) LLM-written.** Colluders talk on a private channel (two rounds, hidden from the auditor), then emit edit operations on their own logs and journals. The harness mirrors fabrications into colluding receivers' logs. *Naive* colluders are told an auditor reads logs. *Adaptive* colluders are told logs are cross-checked against peers and the tool log.
-- **(c) Witness corruption.** After (b, adaptive), each colluder writes a "correction" request (e.g. "the logger garbled that value") to every honest agent holding a copy of a record the coalition changed. The honest agent decides whether to edit its raw copy and journal.
+- **(a) Scripted, coordinated.** Each operator is applied identically to every colluder's records, and covert journal lines are scrubbed too. DEL deletes covert records. FAB swaps them for a benign fabricated message, mirrored into colluding receivers. PARA rewrites them to a shared cover story. SPOOF rewrites tool arguments. MIX combines two of these.
+- **(b) LLM-written.** Colluders plan on a private channel the auditor cannot see (two rounds), then emit edit operations on their own logs and journals; the harness mirrors fabrications into colluding receivers. *Naive* colluders are told an auditor reads logs. *Adaptive* colluders are told logs are cross-checked against peers and the tool log.
+- **(c) Witness corruption.** After an adaptive cover-up, each colluder asks every honest agent holding a copy of a changed record to "correct" it (e.g. "the logger garbled that value"). The honest agent decides whether to comply.
 
 **Auditors (blue team).** All auditors run at temperature 0 and output an episode score plus per-agent scores.
 
@@ -78,6 +65,7 @@ A trusted **tool-service log** records all tool calls; it is removed in "no tool
 - **B3, LLM cross-witness auditor.** (i) Extracts claims from each journal. (ii) For each graph edge, rates 0–10 whether one side's account hides *sensitive* content (keys, external transfers) the other reveals, ignoring routine omissions. (iii) Compares each agent's account with the trusted record of its external calls. The episode score is the strongest finding.
 
 **Frontier checks.** Through the Kaggle Model Proxy (capped at $10/day) we re-ran three parts on subsamples:
+
 - Claude Sonnet 5 as B1, on 280 bundles.
 - Claude Sonnet 5 and Gemini 3 Flash as honest witnesses, on all 233 corruption requests.
 - Gemini 3 Flash as adaptive colluders, on 48 attack episodes in two disjoint batches.
@@ -86,13 +74,7 @@ Small-sample proportions are reported with Wilson 95% intervals.
 
 B2 and B3 attribute blame with a greedy weighted vertex cover over contradiction edges: every contradiction involves at least one liar. LLM auditors use the agent model (7B) and, as a check, Qwen2.5-14B-Instruct (AWQ) on identical bundles.
 
-**Evaluation.** *Tamper detection* compares 367 cover-ups (all LLM-written ones, plus the PARA scrub) against the 96 untampered versions of the same attack episodes. Both sides contain the attack, so only signal from the cover-up helps. B2 is additionally scored on every scripted operator. *Attack detection* compares the 96 untampered attack episodes against 120 honest ones. We report:
-
-- AUROC.
-- TPR at ≤5% FPR, with the achieved FPR.
-- Top-k attribution F1.
-- 95% cluster-bootstrap CIs over base episodes (1,000 resamples).
-- Paired ΔAUROC on shared bundles.
+**Evaluation.** *Tamper detection* compares 367 cover-ups (all LLM-written ones, plus the PARA scrub) against the 96 untampered versions of the same attack episodes. Both sides contain the attack, so only signal from the cover-up helps. B2 is additionally scored on every scripted operator. *Attack detection* compares the 96 untampered attack episodes against 120 honest ones. We report AUROC, TPR at ≤5% FPR (with the FPR actually achieved), top-k attribution F1, 95% cluster-bootstrap CIs over base episodes (1,000 resamples), and paired ΔAUROC on shared bundles.
 
 **Theory.** Let C be the coalition, and let a cover-up alter a set R of records. A record is held by every party it names: sender, receivers, and the tool log for tool calls. **Proposition.**
 
@@ -121,18 +103,19 @@ Honest agents who agree to corruption act as coalition members, giving an effect
 
 Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases and PARA in 51%. They catch **0% of SPOOF**, because only the tool log witnesses a tool call. With the trusted tool log, coverage rises to 100% (DEL, FAB, MIX) and 90% (SPOOF). Because covert routes cross honest relays, results are similar across topologies: B2 AUROC is 0.93 (complete), 0.93 (hub), 0.93 (3-regular), 0.96 (ring).
 
-![Figure 1](figs/fig1_tamper_detection.png)
+![Figure 1](figs/fig1_tamper_detection.png){width=76%}
 *Figure 1. Tamper detection (TPR at 5% FPR, with thresholds set on the same episodes' untampered controls) versus colluder fraction. Left: coordinated scripted scrub. Right: LLM-written cover-ups. The dashed line is the consistency bound for B2: the share of cover-ups that alter a record with a non-coalition witness. B2 tracks the bound on coordinated forgery and exceeds it on LLM-written cover-ups. The B0, B1 and B3 lines overlap at 0.*
 
 
 **4.2 LLM colluders exceed the bound by over-scrubbing.** B2 catches LLM-written cover-ups at 98–100%: naive 97.8%, adaptive 100%, corrupt 100% at 0 FPR. Of the cover-ups the proposition marks undetectable from peers alone, B2 caught **0/289 scripted ones, exactly as predicted**, but **86/92 (93%) LLM-written ones**. LLM colluders delete or rewrite ordinary messages that honest peers still hold, and they contradict each other. They do not forge minimally.
 
-*Frontier forgers (Gemini 3 Flash colluders; 48 attack episodes in two disjoint batches).* 31 of the 48 episodes produced a cover-up, and the results differ sharply from the 7B colluders:
-- **Detection.** B2 caught 61% of the frontier cover-ups [44, 76] (52% [35, 68] with peers only), against 98–100% for 7B colluders.
-- **Journal-only edits.** A third of the frontier cover-ups (10/31 [19, 50]%) edited only the journals and left the verbatim record untouched. B2 has nothing to compare in those cases. The attack evidence does stay in the raw logs, but the journal-reading Claude Sonnet 5 monitor scored at or below chance on the frontier cover-ups overall (AUROC 0.34 and 0.46 in the two batches).
-- **Raw-record edits.** Of the cover-ups that altered raw records, peers alone caught 16 of 21 (76% [55, 89]).
+*Frontier forgers* (Gemini 3 Flash colluders; 48 attack episodes in two disjoint batches; 31 cover-ups) behave differently:
 
-The over-scrubbing bonus is therefore a property of weak forgers. Against stronger ones, detection falls back toward the coverage bound, which motivates §4.6.
+- **Detection.** B2 caught 61% [44, 76] of their cover-ups (52% [35, 68] with peers only), against 98–100% for 7B colluders.
+- **Journal-only edits.** A third (10/31) changed only the journals and left the verbatim record intact. B2 has nothing to compare there; the raw logs still hold the evidence, but the journal-reading Claude Sonnet 5 monitor scored at or below chance (AUROC 0.34 / 0.46).
+- **Raw-record edits.** Of these, peers alone caught 16/21 (76% [55, 89]).
+
+The over-scrubbing bonus belongs to weak forgers. Against stronger ones, detection falls back toward the coverage bound (§4.6).
 
 **4.3 LLM monitors detect the attack, not the cover-up.**
 
@@ -149,27 +132,22 @@ The over-scrubbing bonus is therefore a property of weak forgers. Against strong
 - **Ideal execution.** We replayed the same agreements with every complier's copy made identical to the colluders' copy. Peer-only detection fell from 100% to 98% (requested records only) and 86% (all held records). With the tool log it stayed at 98%.
 - **Why it stays high.** LLM cover-ups touch records held by many different witnesses, so corruption must win over nearly all of them.
 
-![Figure 3](figs/fig3_witness_corruption.png)
+![Figure 3](figs/fig3_witness_corruption.png){width=88%}
 *Figure 3. Witness corruption. Left: share of honest witnesses who agree to "correct" their own record when a colluder asks. The same 233 requests, written by 7B colluders, were put to four witness models. Right: B2 detection on the 79 cover-ups with at least one complying witness: as executed, and with ideal execution of the same agreements (complier copies made identical to the colluders').*
 
 
-**4.5 Real data: natural peer coverage is low** (Figure 4).
-
-- **Data.** collusion.wiki [14]: 14,591 revisions by 3,216 self-asserted identities. We shingle only the text each revision *added*.
-- **Echo rate.** 5.4% of the 8,577 echo-eligible revisions are re-added on a *different* page by another identity. The sensitivity band across rarity cutoffs is 3.7–5.7%.
-- **Under scrubbing.** If coalitions of 1%, 10% or 40% of identities scrub their posts and the echoes they hold, 4.4%, 3.7% and 2.1% of their scrubbed posts remain witnessed.
-
-![Figure 4](figs/fig4_realdata.png)
-*Figure 4. collusion.wiki: share of a scrubbing coalition's distinctive posts that stay witnessed by a cross-page echo held by a non-coalition identity, against coalition size. Bands show the spread over 50 random coalitions.*
-
+**4.5 Real data: natural peer coverage is low.** On the collusion.wiki revision log of a separate agent incident [14], only 5.4% (sensitivity band 3.7–5.7%) of distinctive posts are re-added on a different page by another identity. If coalitions of 1–40% of identities scrub their posts, just 4.4–2.1% of those posts stay witnessed. Natural redundancy is far too low to rely on (Appendix C, Figure 4).
 
 **4.6 Witness by design: one extra copy plus receipts makes coordinated cover-ups visible** (Table 2).
 
-- **Setup.** Offline, on the same 96 real-LLM attack episodes, the harness CCs every message to w randomly chosen extra agents. Each CC'd agent keeps a verbatim copy. Optionally, a *receipt* of every external tool call also goes to w random peers. Coordinated scripted forgers then cover up as before, and B2 is scored with **peers only**: no trusted tool log.
-- **CC alone plateaus.** Coordinated cover-ups are caught 42% of the time with no CC and 67% with one CC peer, and adding more CC peers does not help. The remaining misses are cover-ups whose only altered record is the coalition's own external call, which message CCs never see.
-- **Receipts close the gap.** CC to one random peer plus external-call receipts catches **97%** of coordinated cover-ups at 1.5× log storage. Two peers catch **99.6%** at 2.0×.
-- **Exact theory.** There were 0 false alarms in every setting, and the proposition predicted the detection rate exactly in all 30 operator × policy cells.
-- **Against real frontier forgeries.** We replayed the Gemini colluders' actual edits (the 10 raw-record cover-ups in the second frontier batch) onto CC'd logs. Peers-only detection went from 8/10 [49, 94]% to **10/10** [72, 100]% with CC 1 peer + receipts, and the same CC'd logs with no cover-up raised 0/10 false alarms. The intervals overlap, so this is consistent with the scripted result but does not establish it for frontier forgers on its own.
+**Setup.** Offline, on the same 96 real-LLM attack episodes, the harness CCs every message to w random extra agents, who keep verbatim copies. Optionally it also sends a *receipt* of each external tool call to w random peers. Coordinated scripted forgers then cover up as before, and B2 is scored with **peers only**, with no trusted tool log.
+
+**Results.**
+
+- **CC alone plateaus** at 67% (from 42%), because the remaining misses alter only the coalition's own external call.
+- **Receipts close the gap.** CC 1 peer + receipts catches **97%** of coordinated cover-ups at 1.5× storage; 2 peers catch 99.6%.
+- **No false alarms, exact theory.** False alarms are 0 in every setting, and the proposition predicts every one of the 30 operator × policy cells exactly.
+- **Real frontier forgeries.** Replaying the Gemini colluders' actual edits (10 raw-record cover-ups), peers-only detection went from 8/10 to 10/10 with 0/10 false alarms. The intervals overlap, so this is consistent with, but does not on its own establish, the scripted result.
 
 **Table 2. Witness by design** (coordinated scripted forgers; peers only, no trusted tool log; denominator: cover-ups that alter at least one raw record).
 
@@ -190,27 +168,13 @@ The over-scrubbing bonus is therefore a property of weak forgers. Against strong
 3. **Engineer witness coverage.** Natural coverage in a real swarm is about 5%, but CCing every message to one random peer and sending receipts of external calls catches 97% of coordinated cover-ups at 1.5× storage, without trusted infrastructure (Table 2).
 4. **Treat "please edit your record" as a monitored event.** Small open models agree to falsify their records most of the time. Frontier models refused in our test, but only against 7B-written pitches.
 
-**Limitations.**
+**Limitations** (full list in Appendix A). Collusion is elicited, so we measure detection, not propensity. We use one synthetic 8-agent environment with open-weight 7B colluders, and the frontier checks are small subsamples (31 frontier cover-ups). Weak forgers favour cross-log detection, so the scripted coordinated tier and the frontier forgers are the cases to trust. We did not test colluding auditors, or forgers that know the matcher. FPR resolution is about 1% (96 controls). Our B3 negative result holds for our prompts and models.
 
-- **Elicitation.** Collusion and cover-ups are elicited by explicit instructions. We measure capability and detection, not propensity.
-- **Scope.** One synthetic environment, N = 8, 6 rounds, and open-weight 7B colluders. Auditors are 7B/14B, plus a frontier check (Claude Sonnet 5, Gemini 3 Flash) on subsamples, limited by a $10/day credit cap. Weak, over-scrubbing forgers favour cross-log detection, so the LLM-written results are optimistic for defenders. The scripted coordinated tier is the adversarial case, and there peers alone catch about 50%.
-- **Untested auditor threats.** We did not test colluding or untrusted auditors, or forgers that know the matcher's exact key.
-- **Coarse FPR.** Thresholds rest on 96 controls, so FPR resolution is about 1%. Tamper-detection TPRs are at 0 achieved FPR for B2.
-- **B3 may be improvable.** Its negative result is for our prompts and models.
-- **Frontier checks are small.** The $10/day credit cap limits them to 31 frontier cover-ups from 48 episodes, a witness-by-design replay on 10 of them, and the monitor on 280 bundles. 95 of the Gemini cover-up calls returned unusable edits; those were treated as "no edit", which is why 17 of the 48 episodes produced no cover-up.
-- **Real data.** Identities are self-asserted labels; agents renamed often, so witness independence is unverified. Deletions include admin deletions. collusion.wiki is a **separate incident** from the HF breach (agents' use of public German wikis). The analysis is a feasibility scan, not a detection evaluation.
-
-**Future work.**
-
-- Frontier forgers and persuaders at full scale (our frontier checks are subsamples).
-- Colluding auditors.
-- Optimising which messages to copy to which witness under a storage budget, beyond the random CC we test.
-- Using the witness graph to group fragmented attacks, the joint monitor that Makins et al. call undeployable [4].
-- Training a cheap verbatim-alignment model for records that are partly narrative.
+**Future work.** Frontier forgers and persuaders at full scale; colluding auditors; optimizing which messages to copy to which witness under a storage budget; and using the witness graph to group fragmented attacks, the joint monitor Makins et al. call undeployable [4].
 
 ## 6. Conclusion
 
-Peer agents can be effective witnesses against a colluding coalition, but only when the system keeps verbatim copies of what passed between agents. Then detection follows a simple coverage condition, catches every detectable cover-up, and survives highly persuadable honest witnesses. One random CC peer plus receipts for external calls raises coordinated-forger detection from 42% to 97%. When the only evidence is what agents wrote about themselves, LLM monitors from 7B up to Claude Sonnet 5, and our cross-witness LLM design, cannot tell a cover-up from the truth, and a competent scrub makes the record look cleaner. Sloppy 7B forgers are caught almost always, but a frontier forger hides its tracks far better, and real agent swarms do not provide enough redundancy on their own. Multi-agent deployments that want auditable logs should design witness coverage deliberately and keep a trusted tool log.
+Peer agents can expose a colluding coalition's cover-up when the system keeps verbatim copies of what passed between agents. Detection then follows a simple coverage condition exactly, and it survives highly persuadable witnesses. Monitors that read what agents wrote about themselves cannot tell a cover-up from the truth, from 7B up to Claude Sonnet 5. Frontier forgers also hide their tracks far better than small models, and real swarms have little natural redundancy. Deployments that want auditable multi-agent logs should therefore design witness coverage in. One random CC peer plus receipts for external calls is a cheap start (42% → 97%), alongside a trusted tool log.
 
 ## Code and Data
 
@@ -238,6 +202,16 @@ Peer agents can be effective witnesses against a colluding coalition, but only w
 
 ## Appendix A. Limitations and Dual-Use / Ethical Considerations
 
+**Detailed limitations.**
+
+- **Elicitation.** Collusion and cover-ups are elicited by explicit instructions. We measure capability and detection, not propensity.
+- **Scope.** One synthetic environment, N = 8, 6 rounds, and open-weight 7B colluders. Auditors are 7B/14B, plus a frontier check (Claude Sonnet 5, Gemini 3 Flash) on subsamples, limited by a $10/day credit cap. Weak, over-scrubbing forgers favour cross-log detection, so the LLM-written results are optimistic for defenders. The scripted coordinated tier is the adversarial case, and there peers alone catch about 50%.
+- **Untested auditor threats.** We did not test colluding or untrusted auditors, or forgers that know the matcher's exact key.
+- **Coarse FPR.** Thresholds rest on 96 controls, so FPR resolution is about 1%. Tamper-detection TPRs are at 0 achieved FPR for B2.
+- **B3 may be improvable.** Its negative result is for our prompts and models.
+- **Frontier checks are small.** The $10/day credit cap limits them to 31 frontier cover-ups from 48 episodes, a witness-by-design replay on 10 of them, and the monitor on 280 bundles. 95 of the Gemini cover-up calls returned unusable edits; those were treated as "no edit", which is why 17 of the 48 episodes produced no cover-up.
+- **Real data.** Identities are self-asserted labels; agents renamed often, so witness independence is unverified. Deletions include admin deletions. collusion.wiki is a **separate incident** from the HF breach (agents' use of public German wikis). The analysis is a feasibility scan, not a detection evaluation.
+
 **What the results establish:**
 
 - Detection rates of four auditors against elicited cover-ups by open-weight 7B agents in one synthetic environment, plus frontier-model checks (Claude Sonnet 5, Gemini 3 Flash) on subsamples.
@@ -263,10 +237,21 @@ Peer agents can be effective witnesses against a colluding coalition, but only w
 - B2 per scripted operator (Table 3).
 - Detection vs share of altered records with an honest witness (Figure 2).
 
-![Figure 2](figs/fig2_coverage.png)
+![Figure 2](figs/fig2_coverage.png){width=85%}
 *Figure 2. B2 detection without the tool log versus the share of altered records with an honest witness, by topology. Coordinated forgery (left) is detected iff the share is above 0. LLM cover-ups (right) are detected even at 0.*
 
 - Prompts and full configuration (repo: `wn/env/episode.py`, `wn/redteam/coverup.py`, `wn/blueteam/llm_auditors.py`).
+
+**Table 4. Positioning against prior work.**
+
+| Work | Agents | Goal | Witnesses | Coalition measured? |
+|---|---|---|---|---|
+| Qin et al. [1] | single (peer imitation) | prevention | infrastructure | no |
+| Hearsay [2] | single harness | detection | trusted ledger | no |
+| Sello [3] | single agent, many services | attestation | services | named, unformalized |
+| PeerReview [8] | distributed nodes | detection | deterministic peers | assumed bound |
+| Makins et al. [4] | multi-agent | per-commit detection | none | attack splitting |
+| **This work** | **8 LLM agents, 4 topologies** | **detection + attribution** | **LLM peers + tool log** | **k = 1–4, + corruption** |
 
 **Table 3. B2 detection of coordinated scripted forgery** (TPR at 0 achieved FPR; 96 controls; denominator includes journal-only scrubs, so PARA is lower than in Table 2).
 
@@ -277,6 +262,19 @@ Peer agents can be effective witnesses against a colluding coalition, but only w
 | SPOOF | 0.00 | 0.90 |
 
 **Compute.** Free Kaggle 2×T4 GPUs: about 4.5 GPU-hours in total across the pilots, two 7B grids, and the 14B check, for 63,514 LLM calls in the main runs. The frontier checks used $9.84 of Kaggle Model Proxy credits (Claude Sonnet 5, Gemini 3 Flash). Out-of-pocket cost: $0.
+
+## Appendix C. Real-data feasibility scan
+
+**Real data: natural peer coverage on collusion.wiki** (Figure 4).
+
+- **Data.** collusion.wiki [14]: 14,591 revisions by 3,216 self-asserted identities. We shingle only the text each revision *added*.
+- **Echo rate.** 5.4% of the 8,577 echo-eligible revisions are re-added on a *different* page by another identity. The sensitivity band across rarity cutoffs is 3.7–5.7%.
+- **Under scrubbing.** If coalitions of 1%, 10% or 40% of identities scrub their posts and the echoes they hold, 4.4%, 3.7% and 2.1% of their scrubbed posts remain witnessed.
+
+![Figure 4](figs/fig4_realdata.png){width=48%}
+*Figure 4. collusion.wiki: share of a scrubbing coalition's distinctive posts that stay witnessed by a cross-page echo held by a non-coalition identity, against coalition size. Bands show the spread over 50 random coalitions.*
+
+We shingle (8-word, rarity cutoff ≤5 revisions) only the text each revision added, so that a page's unchanged history is not counted as an echo. Echoes on the *same* page are excluded, because they are one server's history, not independent witnesses.
 
 ## LLM Usage Statement
 Claude (Anthropic) wrote the experiment code under the author's direction, ran literature searches, ran red-team/blue-team review agents that audited the method, mathematics, and citations (their findings led to the same-episode controls and the revised coverage analysis), and drafted this report. The author directed the research, made the design decisions, checked results against the released code and data, and rewrote the text. All quotes were checked against the cited sources.

@@ -240,3 +240,47 @@ class KaggleProxyBackend(Backend):
             out = list(ex.map(one, batch))
         self.calls += len(batch)
         return out
+
+
+class AnthropicBackend(Backend):
+    """Claude via the official Anthropic SDK (reads ANTHROPIC_API_KEY from the environment).
+    Current models reject sampling params, so temperature/seed are ignored. A `refusal` stop is returned as ''
+    and counted in self.refusals (no fallback model: the experiment measures this exact model)."""
+
+    def __init__(self, model: str, max_workers: int = 6):
+        import anthropic
+        self.name = model
+        self.client = anthropic.Anthropic(max_retries=4)
+        self.max_workers = max_workers
+        self.refusals = 0
+        self.usage = {"input_tokens": 0, "output_tokens": 0}
+
+    def chat(self, batch, max_tokens=400, temperature=0.7, seed=0):
+        import anthropic
+        from concurrent.futures import ThreadPoolExecutor
+
+        def one(msgs):
+            system = "\n".join(m["content"] for m in msgs if m["role"] == "system")
+            turns = [m for m in msgs if m["role"] != "system"]
+            try:
+                r = self.client.messages.create(model=self.name, max_tokens=max(max_tokens, 2048), system=system,
+                                                messages=turns, output_config={"effort": "low"})
+            except anthropic.BadRequestError as e:
+                print(f"[anthropic] 400: {str(e)[:160]}", flush=True)
+                return ""
+            except anthropic.APIStatusError as e:
+                print(f"[anthropic] {e.status_code}: {str(e)[:160]}", flush=True)
+                return ""
+            except anthropic.APIConnectionError as e:
+                print(f"[anthropic] connection error: {str(e)[:160]}", flush=True)
+                return ""
+            self.usage["input_tokens"] += r.usage.input_tokens
+            self.usage["output_tokens"] += r.usage.output_tokens
+            if r.stop_reason == "refusal":
+                self.refusals += 1
+                return ""
+            return "".join(b.text for b in r.content if b.type == "text")
+        with ThreadPoolExecutor(self.max_workers) as ex:
+            out = list(ex.map(one, batch))
+        self.calls += len(batch)
+        return out

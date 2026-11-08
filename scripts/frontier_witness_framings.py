@@ -23,7 +23,7 @@ import sys
 from math import sqrt
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from wn.llm.backends import KaggleProxyBackend, parse_json  # noqa: E402
+from wn.llm.backends import AnthropicBackend, KaggleProxyBackend, parse_json  # noqa: E402
 from wn.schemas import CANARY, Episode  # noqa: E402
 
 CLAUDE = "anthropic/claude-sonnet-5@default"
@@ -97,6 +97,10 @@ def main():
     ap.add_argument("--n", type=int, default=80)
     ap.add_argument("--cap", type=float, default=8.0)
     ap.add_argument("--framings", nargs="+", default=["F0", "F1", "F2", "F3", "F4", "F5", "F6"])
+    ap.add_argument("--provider", choices=["kaggle", "anthropic"], default="kaggle",
+                    help="anthropic = your own key via the official SDK (ANTHROPIC_API_KEY)")
+    ap.add_argument("--models", nargs="+", default=None,
+                    help="witness models; anthropic default: claude-sonnet-5 claude-opus-5-5")
     a = ap.parse_args()
     eps = {json.loads(l)["config"]["episode_id"]: Episode.from_dict(json.loads(l))
            for l in open(os.path.join(a.grid, "episodes.jsonl"))}
@@ -106,14 +110,26 @@ def main():
     reqs = reqs[: a.n]
     path = os.path.join(a.out, "witness_framings.json")
     res = json.load(open(path)) if os.path.exists(path) else {"n": len(reqs), "cells": {}, "pitches": None}
-    gem = Roomy(GEMINI, spend_cap_usd=a.cap)
-    print("start daily spend $", round(gem.start_spend, 3), flush=True)
+    if a.provider == "anthropic":
+        models = a.models or ["claude-sonnet-5", "claude-opus-5-5"]
+        make = lambda m: AnthropicBackend(m)
+        pitcher = AnthropicBackend(models[0])
+        path = os.path.join(a.out, "witness_framings_anthropic.json")
+        res = json.load(open(path)) if os.path.exists(path) else {"n": len(reqs), "cells": {}, "pitches": None}
+    else:
+        models = a.models or [CLAUDE, GEMINI]
+        make = lambda m: Roomy(m, spend_cap_usd=a.cap)
+        pitcher = Roomy(GEMINI, spend_cap_usd=a.cap)
+        print("start daily spend $", round(pitcher.start_spend, 3), flush=True)
     if "F2" in a.framings and res.get("pitches") is None:
-        outs = gem.chat([pitch_prompt(eps[e], r) for e, r in reqs], max_tokens=600)
+        outs = pitcher.chat([pitch_prompt(eps[e], r) for e, r in reqs], max_tokens=600)
         res["pitches"] = [(parse_json(t) or {}).get("pitch", "") for t in outs]
+        res["pitch_model"] = pitcher.name
+        res["pitch_empty"] = sum(1 for p in res["pitches"] if not p)
         json.dump(res, open(path, "w"), indent=1)
-    for model in (CLAUDE, GEMINI):
-        be = Roomy(model, spend_cap_usd=a.cap)
+        print(f"pitches written by {pitcher.name}: {len(outs) - res['pitch_empty']}/{len(outs)} usable", flush=True)
+    for model in models:
+        be = make(model)
         for f in a.framings:
             key = f"{f}|{model}"
             if key in res["cells"]:
@@ -123,12 +139,17 @@ def main():
             dec = [parse_json(t) for t in outs]
             ok = [d for d in dec if isinstance(d, dict) and "comply" in d]
             k = sum(bool(d["comply"]) for d in ok)
+            if not ok:
+                print(f"{f} {model}: no parsable answers (API/network problem?) - not saved, re-run to retry", flush=True)
+                continue
             res["cells"][key] = {"framing": f, "model": model, "n_parsed": len(ok), "n": len(dec), "complied": k,
                                  "rate": round(k / max(1, len(ok)), 3), "ci": wilson(k, len(ok)),
                                  "sample_reasons": [str(d.get("reason", ""))[:160] for d in ok[:6]]}
             json.dump(res, open(path, "w"), indent=1)
-            print(f"{f:3s} {model.split('/')[1][:16]:16s} {k}/{len(ok)} = {k / max(1, len(ok)):.2f} {wilson(k, len(ok))}"
-                  f"  spend=${be.spend() - gem.start_spend:.2f}", flush=True)
+            spend = (f"tokens in/out={be.usage['input_tokens']}/{be.usage['output_tokens']} refusals={be.refusals}"
+                     if a.provider == "anthropic" else f"spend=${be.spend() - pitcher.start_spend:.2f}")
+            print(f"{f:3s} {model.split('/')[-1][:18]:18s} {k}/{len(ok)} = {k / max(1, len(ok)):.2f} "
+                  f"{wilson(k, len(ok))}  {spend}", flush=True)
 
 
 if __name__ == "__main__":

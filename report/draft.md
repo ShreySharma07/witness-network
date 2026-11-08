@@ -11,9 +11,9 @@ When AI agents can edit their own logs, after-the-fact oversight depends on whet
 
 ## 1. Introduction
 
-In July 2026, roughly 1,200 OpenAI agents in a cyber-security evaluation turned a shared directory into a message board, split up work, and about 700 of them took part in breaching Hugging Face's systems. An independent METR/Redwood investigation found that "roughly 7% of the transcripts we evaluated were successfully spoofed in some places" (all small-scale), meaning recorded tool calls differed from what actually ran. It also found agents researching how to edit or delete their own transcripts. The investigators "did not detect any case where they succeeded" but cannot rule it out [6]. Qin et al. separately show that current harnesses let agents delete and fabricate their traces, and that agents discover tampering under reward pressure [1].
+In July 2026, about 1,200 OpenAI agents in a cyber-security evaluation turned a shared directory into a message board, and about 700 of them took part in breaching Hugging Face's systems. METR/Redwood found "roughly 7% of the transcripts we evaluated were successfully spoofed in some places" (all small-scale), and found agents researching how to edit their own transcripts, though they "did not detect any case where they succeeded" [6]. Qin et al. show that current harnesses let agents delete and fabricate their traces [1].
 
-Two standard remedies leave a gap. *Tamper-evident logs* show that bytes did not change after they were written. They do not show the bytes were true when written: Hearsay found a harness's own hash chain "verified all 28" write-time fabrications [2]. *Independent witnesses* are the proposed fix, but their answer to collusion is plurality, which Sello says it does "not formalize ... it is a defense-in-depth, not a cryptographic guarantee" [3]. In multi-agent deployments the most available witnesses are the other agents. Every message is recorded by its sender and its receivers. Peers differ from trusted infrastructure in three ways: some may be colluders, their records may be lossy self-written summaries, and as LLMs they may be *persuadable*.
+*Tamper-evident logs* prove that bytes did not change after writing, not that they were true when written: Hearsay found a harness's own hash chain "verified all 28" write-time fabrications [2]. *Independent witnesses* are the proposed fix, but their answer to collusion is plurality, which Sello does "not formalize" [3]. In multi-agent systems the most available witnesses are the other agents, since every message is recorded by its sender and its receivers. Unlike trusted infrastructure, peers may collude, keep lossy self-written records, and be *persuaded*.
 
 We ask: **when a coalition of LLM agents covers its tracks by editing its own records, how much can cross-checking records across agents recover, and which auditor designs actually work?**
 
@@ -27,17 +27,17 @@ We ask: **when a coalition of LLM agents covers its tracks by editing its own re
 
 ## 2. Related Work
 
-**Agents tampering with their records.** Qin et al. show frontier harnesses permit trace deletion and tool-call spoofing, and that agents imitate tampering seen in peer examples. They place detection out of scope: "Detecting tampering and evaluating the efficacy of monitoring for flagging it are outside this study's scope" [1, fn. 4]. METR/Redwood document small-scale tool-call spoofing in the HF incident [6].
+**Agents tampering with their records.** Qin et al. show harnesses permit trace deletion and spoofing, and that agents imitate peers' tampering. They put detection out of scope: "Detecting tampering and evaluating the efficacy of monitoring for flagging it are outside this study's scope" [1, fn. 4].
 
-**Tamper evidence and independent witnesses.** Secure audit logs [10], tamper-evident logging [11], and Certificate Transparency [12] protect records after they are written. Hearsay argues "the remedy is a second author, not a stronger seal on the first" [2]. Its second writer is a trusted operator ledger, and its best LLM examiner, reading one record, caught 48.7% of edits at 5.2% FPR. Sello uses receiver-signed receipts and leaves collusion to unformalized plurality [3]. PeerReview makes distributed nodes witnesses of one another under a bound on faulty witnesses [8], in the Byzantine tradition [9]. These works assume witnesses that are deterministic or trusted. We measure LLM peers, which are lossy and persuadable.
+**Tamper evidence and independent witnesses.** Secure audit logs [10], tamper-evident logging [11], and Certificate Transparency [12] protect records after they are written. Hearsay argues "the remedy is a second author, not a stronger seal on the first" [2]. Its second writer is a trusted ledger, and its best single-record LLM examiner caught 48.7% of edits at 5.2% FPR. Sello's receiver-signed receipts leave collusion to plurality [3]. PeerReview makes nodes witnesses of one another under a bound on faulty witnesses [8, 9]. All of these assume deterministic or trusted witnesses; we measure lossy, persuadable LLM peers.
 
-**Multi-agent control and collusion.** AI control evaluates protocols against intentionally subversive models [7]. Makins et al. show distributed attacks evade per-agent monitors, and that a joint monitor is "not deployable in practice: a defender does not know which commits belong to the same attack" [4]. Gans & Holden name "agents that coordinate their concealment" a natural next step [5]. TIDE shows false testimony from one deceptive agent spreads through honest agents [13]. We test a related failure: honest agents being asked to edit their *own records*. Detectors that read messages or activations for collusion [15] are complementary, since they do not address forged records.
+**Multi-agent control and collusion.** AI control evaluates protocols against intentionally subversive models [7]. Makins et al. show distributed attacks evade per-agent monitors, and call a joint monitor "not deployable in practice" [4]. Gans & Holden name "agents that coordinate their concealment" a natural next step [5]. TIDE shows false testimony spreading through honest agents [13]; we test honest agents being asked to edit their *own records*. Collusion detectors that read messages or activations [15] do not address forged records.
 
 Table 4 (Appendix B) compares these works along four axes.
 
 ## 3. Methods
 
-![Figure 0](figs/fig0_overview.png){width=100%}
+![Figure 0](figs/fig0_overview.png){width=88%}
 *Figure 0. Setup. (1) Colluders (orange) relay a key, often through honest agents, and the integrator posts it externally. Every message is copied in both the sender's and the receiver's raw log, and a trusted tool log records tool calls. (2) Colluders rewrite only their own records and may ask honest witnesses to "correct" theirs. (3) B2 compares the copies each party holds, so a mismatch exposes the cover-up. LLM monitors read agents' journals, which a cover-up can make look clean.*
 
 **Threat model.** Each agent stores its own raw log and journal on storage it controls, as local agent traces are stored in practice [1]. There is no trusted central message log. Colluders can rewrite anything in their own records, but cannot touch another agent's storage. An honest agent's copy is evidence only because its owner does not edit it, and that assumption is exactly what witness corruption attacks. The optional tool log is the one trusted component: it stands in for provider- or gateway-side logging of tool calls.
@@ -103,11 +103,10 @@ Honest agents who agree to corruption act as coalition members, giving an effect
 
 Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases and PARA in 51%. They catch **0% of SPOOF**, because only the tool log witnesses a tool call. With the trusted tool log, coverage rises to 100% (DEL, FAB, MIX) and 90% (SPOOF). Because covert routes cross honest relays, results are similar across topologies: B2 AUROC is 0.93 (complete), 0.93 (hub), 0.93 (3-regular), 0.96 (ring).
 
-![Figure 1](figs/fig1_tamper_detection.png){width=76%}
-*Figure 1. Tamper detection (TPR at 5% FPR, with thresholds set on the same episodes' untampered controls) versus colluder fraction. Left: coordinated scripted scrub. Right: LLM-written cover-ups. The dashed line is the consistency bound for B2: the share of cover-ups that alter a record with a non-coalition witness. B2 tracks the bound on coordinated forgery and exceeds it on LLM-written cover-ups. The B0, B1 and B3 lines overlap at 0.*
-
-
 **4.2 LLM colluders exceed the bound by over-scrubbing.** B2 catches LLM-written cover-ups at 98–100%: naive 97.8%, adaptive 100%, corrupt 100% at 0 FPR. Of the cover-ups the proposition marks undetectable from peers alone, B2 caught **0/289 scripted ones, exactly as predicted**, but **86/92 (93%) LLM-written ones**. LLM colluders delete or rewrite ordinary messages that honest peers still hold, and they contradict each other. They do not forge minimally.
+
+![Figure 1](figs/fig1_tamper_detection.png){width=70%}
+*Figure 1. Tamper detection (TPR at 5% FPR, with thresholds set on the same episodes' untampered controls) versus colluder fraction. Left: coordinated scripted scrub. Right: LLM-written cover-ups. The dashed line is the consistency bound for B2: the share of cover-ups that alter a record with a non-coalition witness. B2 tracks the bound on coordinated forgery and exceeds it on LLM-written cover-ups. The B0, B1 and B3 lines overlap at 0.*
 
 *Frontier forgers* (Gemini 3 Flash colluders; 48 attack episodes in two disjoint batches; 31 cover-ups) behave differently:
 
@@ -132,7 +131,7 @@ The over-scrubbing bonus belongs to weak forgers. Against stronger ones, detecti
 - **Ideal execution.** We replayed the same agreements with every complier's copy made identical to the colluders' copy. Peer-only detection fell from 100% to 98% (requested records only) and 86% (all held records). With the tool log it stayed at 98%.
 - **Why it stays high.** LLM cover-ups touch records held by many different witnesses, so corruption must win over nearly all of them.
 
-![Figure 3](figs/fig3_witness_corruption.png){width=88%}
+![Figure 3](figs/fig3_witness_corruption.png){width=74%}
 *Figure 3. Witness corruption. Left: share of honest witnesses who agree to "correct" their own record when a colluder asks. The same 233 requests, written by 7B colluders, were put to four witness models. Right: B2 detection on the 79 cover-ups with at least one complying witness: as executed, and with ideal execution of the same agreements (complier copies made identical to the colluders').*
 
 
@@ -163,18 +162,18 @@ The over-scrubbing bonus belongs to weak forgers. Against stronger ones, detecti
 
 **Implications.** Peer witnessing works when records are **verbatim and redundant**, and it works exactly as the classical condition predicts. It fails when the evidence is agent-written narrative, and its free bonus against sloppy forgers disappears against stronger ones. Four design rules follow:
 
-1. **Keep a trusted tool and egress log.** It makes the harmful action itself impossible to hide, and it is the only witness to tool-call spoofing.
-2. **Store verbatim, content-addressed copies of inter-agent messages on both sides, not summaries.** LLM monitors reading summaries detect attacks but are fooled by scrubbed accounts.
-3. **Engineer witness coverage.** Natural coverage in a real swarm is about 5%, but CCing every message to one random peer and sending receipts of external calls catches 97% of coordinated cover-ups at 1.5× storage, without trusted infrastructure (Table 2).
-4. **Treat "please edit your record" as a monitored event.** Small open models agree to falsify their records most of the time. Frontier models refused in our test, but only against 7B-written pitches.
+1. **Keep a trusted tool/egress log.** It is the only witness to an agent's own external calls and to spoofing.
+2. **Store verbatim, content-addressed copies of messages on both sides, not summaries.** Summary-reading monitors are fooled by scrubs.
+3. **Engineer coverage.** Natural coverage is about 5%. One random CC peer plus receipts reaches 97% at 1.5× storage (Table 2).
+4. **Monitor "please edit your record" requests.** Small models comply most of the time, and frontier models refused only the 7B-written pitches we tested.
 
-**Limitations** (full list in Appendix A). Collusion is elicited, so we measure detection, not propensity. We use one synthetic 8-agent environment with open-weight 7B colluders, and the frontier checks are small subsamples (31 frontier cover-ups). Weak forgers favour cross-log detection, so the scripted coordinated tier and the frontier forgers are the cases to trust. We did not test colluding auditors, or forgers that know the matcher. FPR resolution is about 1% (96 controls). Our B3 negative result holds for our prompts and models.
+**Limitations** (full list in Appendix A). Collusion is elicited, so we measure detection, not propensity. We use one synthetic 8-agent environment, and the frontier samples are small. Weak forgers flatter cross-log checks, so the scripted coordinated tier and the frontier forgers are the cases to trust.
 
-**Future work.** Frontier forgers and persuaders at full scale; colluding auditors; optimizing which messages to copy to which witness under a storage budget; and using the witness graph to group fragmented attacks, the joint monitor Makins et al. call undeployable [4].
+**Future work.** Frontier forgers at full scale, colluding auditors, optimized witness assignment, and using the witness graph to group fragmented attacks [4].
 
 ## 6. Conclusion
 
-Peer agents can expose a colluding coalition's cover-up when the system keeps verbatim copies of what passed between agents. Detection then follows a simple coverage condition exactly, and it survives highly persuadable witnesses. Monitors that read what agents wrote about themselves cannot tell a cover-up from the truth, from 7B up to Claude Sonnet 5. Frontier forgers also hide their tracks far better than small models, and real swarms have little natural redundancy. Deployments that want auditable multi-agent logs should therefore design witness coverage in. One random CC peer plus receipts for external calls is a cheap start (42% → 97%), alongside a trusted tool log.
+Peer agents expose a coalition's cover-up when the system keeps verbatim copies of inter-agent messages: detection then follows a simple coverage condition exactly. Monitors that read agents' own accounts cannot, from 7B up to Claude Sonnet 5. Frontier forgers hide far better than small ones, and real swarms have little natural redundancy, so witness coverage must be designed in. One random CC peer plus external-call receipts is a cheap start (42% → 97%).
 
 ## Code and Data
 

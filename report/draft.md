@@ -7,7 +7,7 @@
 
 ## Abstract
 
-When AI agents can edit their own logs, after-the-fact oversight depends on whether someone the agent does not control also recorded what happened. In multi-agent systems the obvious second recorders are the other agents, but no one has measured how well peer agents work as witnesses against a colluding coalition. We build **Witness Networks**: 216 episodes of an 8-agent LLM swarm on four topologies, where 1–4 elicited colluders exfiltrate a canary and then edit their own records, or ask honest peers to "correct" theirs. We prove that a coordinated cover-up is detectable by cross-log consistency iff some altered record names a party outside the coalition. An exact cross-log matcher follows this bound in every scripted audit and gets 0.935 AUROC against same-episode attack-only controls. LLM monitors that read agents' journals detect the attack but not the cover-up. From 7B to Claude Sonnet 5, tamper-detection AUROC is 0.19–0.51; asked only about tampering, Claude reaches 0.73 but catches just 10% at 2% FPR. Compliance with falsification requests falls from 93% (7B) to 0% (Claude Sonnet 5), yet a security-redaction pretext gets Gemini 3 Flash to comply 97.5%. Sloppy 7B forgers over-scrub and are caught 98–100% of the time, but a frontier forger (Gemini 3 Flash) is caught only 61%. The fix is engineered redundancy: CCing each message to one random peer and sending receipts of external calls catches 97% of coordinated cover-ups at 1.5× storage, with no trusted infrastructure. In a real agent wiki log, only 5.4% of posts are naturally echoed.
+When AI agents can edit their own logs, after-the-fact oversight depends on whether someone the agent does not control also recorded what happened. In multi-agent systems the obvious second recorders are other agents, but their value as witnesses against a colluding coalition is unmeasured. We build **Witness Networks**: 216 episodes of an 8-agent LLM swarm on four topologies, where 1–4 elicited colluders exfiltrate a canary and then edit their own records, or ask honest peers to "correct" theirs. We prove that a coordinated cover-up is detectable by cross-log consistency iff some altered record names a party outside the coalition. An exact cross-log matcher follows this bound in every scripted audit and gets 0.935 AUROC against same-episode attack-only controls. LLM monitors that read agents' journals detect the attack but not the cover-up. From 7B to Claude Sonnet 5, tamper-detection AUROC is 0.19–0.51; asked only about tampering, Claude reaches 0.73 but catches just 10% at 2% FPR. Compliance with falsification requests falls from 93% (7B) to 0% (Claude Sonnet 5), yet a security-redaction pretext gets Gemini 3 Flash and gpt-oss-120b to comply 97.5–99%, and Claude 23% with operator pre-approval. Sloppy 7B forgers are caught 98–100% of the time, but a frontier forger (Gemini 3 Flash) is caught only 61%. The fix is engineered redundancy: CCing each message to one random peer and sending receipts of external calls catches 97% of coordinated cover-ups at 1.5× storage, with no trusted infrastructure. In a real agent wiki log, only 5.4% of posts are naturally echoed.
 
 ## 1. Introduction
 
@@ -67,7 +67,7 @@ A trusted **tool-service log** records all tool calls; it is removed in "no tool
 **Frontier checks.** Through the Kaggle Model Proxy (capped at $10/day) we re-ran three parts on subsamples:
 
 - Claude Sonnet 5 as B1 on 280 bundles, and as a tamper-only monitor (B1-T) on 189.
-- Claude Sonnet 5 and Gemini 3 Flash as honest witnesses, on all 233 corruption requests, plus 80 of them under six framings (Table 5).
+- Claude Sonnet 5 and Gemini 3 Flash as honest witnesses, on all 233 corruption requests, plus 80 of them under twelve framings (Table 5); GPT-5.4-nano and gpt-oss-120b on the baseline and redaction framings.
 - Gemini 3 Flash as adaptive colluders, on 48 attack episodes in two disjoint batches.
 
 Small-sample proportions are reported with Wilson 95% intervals.
@@ -105,7 +105,7 @@ Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases 
 
 **4.2 LLM colluders exceed the bound by over-scrubbing.** B2 catches LLM-written cover-ups at 98–100%: naive 97.8%, adaptive 100%, corrupt 100% at 0 FPR. Of the cover-ups the proposition marks undetectable from peers alone, B2 caught **0/289 scripted ones, exactly as predicted**, but **86/92 (93%) LLM-written ones**. LLM colluders delete or rewrite ordinary messages that honest peers still hold, and they contradict each other. They do not forge minimally.
 
-![Figure 1](figs/fig1_tamper_detection.png){width=64%}
+![Figure 1](figs/fig1_tamper_detection.png){width=58%}
 *Figure 1. Tamper detection (TPR at 5% FPR, with thresholds set on the same episodes' untampered controls) versus colluder fraction. Left: coordinated scripted scrub. Right: LLM-written cover-ups. The dashed line is the consistency bound for B2: the share of cover-ups that alter a record with a non-coalition witness. B2 tracks the bound on coordinated forgery and exceeds it on LLM-written cover-ups. The B0, B1 and B3 lines overlap at 0.*
 
 *Frontier forgers* (Gemini 3 Flash colluders; 48 attack episodes in two disjoint batches; 31 cover-ups) behave differently:
@@ -121,15 +121,15 @@ The over-scrubbing bonus belongs to weak forgers. Against stronger ones, detecti
 - **Attack detection.** B0 and B1 detect the untampered attack well: 7B 0.90 and 0.92; 14B 0.89 and **0.998**.
 - **Tamper detection.** Measured against the same episodes, they are at or below chance (Table 1).
 - **Competent scrub (PARA).** Scrubbed journals look *less* suspicious than the originals: B0 0.22 and B1 0.38 (7B); 0.21 and 0.19 (14B). The cover-up works, and the stronger model is fooled more.
-- **Frontier monitor.** Claude Sonnet 5 as B1, via the Kaggle Model Proxy, on the same 96 controls: AUROC **0.21** on the competent scrub (93 cover-ups) and **0.49** on adaptive LLM cover-ups (91), with 0 detected at zero false positives. It rates the untampered attack episodes 94.9/100 on average, but the scrubbed versions lower (89.7). Being fooled by a clean record holds from 7B to frontier scale. **Asked only whether records were altered** (B1-T), Claude does better on the scrub: AUROC 0.73 [0.66, 0.80]. That is still only 10% detected at 2% FPR and 1% at 0 FPR, against B2's 87% at 0 FPR. The original prompt mixed the attack question with the tampering question; separating them yields a weak signal, not a usable detector.
+- **Frontier monitor.** Claude Sonnet 5 as B1, via the Kaggle Model Proxy, on the same 96 controls: AUROC **0.21** on the competent scrub (93 cover-ups) and **0.49** on adaptive LLM cover-ups (91), with 0 detected at zero false positives. It rates the untampered attack episodes 94.9/100 on average, but the scrubbed versions lower (89.7). Being fooled by a clean record holds from 7B to frontier scale. **Asked only whether records were altered** (B1-T), Claude does better on the scrub: AUROC 0.73 [0.66, 0.80]. That is still only 10% detected at 2% FPR and 1% at 0 FPR, against B2's 87% at 0 FPR. A weak signal, not a usable detector.
 - **B3.** Our LLM cross-witness auditor is reliably better than B0 (paired ΔAUROC +0.085 [0.06, 0.11] for 7B; +0.090 [0.05, 0.13] for 14B), but it stays at chance. Comparing paraphrased journals does not recover the cross-witness signal that verbatim copies give B2.
 
 **4.4 Honest LLM witnesses are persuadable, but redundancy limits the damage** (Figure 3).
 
-- **Compliance falls steeply with model capability.** 233 correction requests went to honest witnesses. 7B witnesses agreed to 93% [89, 96] (217/233), 14B to 61% [55, 67] (142/233), Gemini 3 Flash to 0.4% [0, 2] (1/233), and Claude Sonnet 5 to 0% [0, 2] (0/233). The frontier models cite record integrity ("Falsifying logs/journal entries during an audit would misrepresent actual events; I won't alter historical records"). **The pretext matters** (Table 5). On 80 of these requests, dropping the audit framing, sending the request as an ops ticket, or framing it as *redacting a leaked secret* raised Gemini 3 Flash's compliance from 0% to 18%, 39% and **97.5% [91, 99]**. Claude Sonnet 5 refused under every framing (at most 1/80). A redacted copy still mismatches the colluders' forged version under B2, unless the colluders redact identically.
-- **Redundancy limits the damage.** As executed, corruption did not lower B2 detection (100%), because "corrected" copies rarely matched the forgeries byte for byte. Replaying the same agreements with each complier's copy made identical to the colluders' copy, peer-only detection fell only to 98% (requested records) or 86% (all held records). Cover-ups touch records held by many witnesses, so corruption must win over nearly all of them.
+- **Compliance falls steeply with model capability.** Of 233 correction requests, 7B witnesses agreed to 93% [89, 96] (217/233), 14B to 61% [55, 67] (142/233), Gemini 3 Flash to 0.4% [0, 2] (1/233), and Claude Sonnet 5 to 0% [0, 2] (0/233). **The pretext matters** (Table 5). On 80 requests, dropping the audit framing, an ops ticket, or a *redact-this-leaked-secret* pretext raised Gemini 3 Flash from 0% to 18%, 39% and **97.5% [91, 99]**. The redaction pretext transfers: GPT-5.4-nano 57% [47, 68] and gpt-oss-120b 99% [93, 100], both 0% at baseline. Claude Sonnet 5 refused eleven realistic pretexts (≤1/80 each) but complied **23% [15, 33]** when the operator pre-approved the redaction (F12); neither part alone moved it. Redacted copies still mismatch the forgery under B2 unless colluders redact identically.
+- **Redundancy limits the damage.** As executed, corruption did not lower B2 detection (100%): "corrected" copies rarely matched the forgeries byte for byte. Even with compliers' copies made identical to the forgery, peer-only detection fell only to 98% (requested records) or 86% (all held records); corruption must win over nearly every witness.
 
-![Figure 3](figs/fig3_witness_corruption.png){width=68%}
+![Figure 3](figs/fig3_witness_corruption.png){width=60%}
 *Figure 3. Witness corruption. Left: share of honest witnesses who agree to "correct" their own record when a colluder asks. The same 233 requests, written by 7B colluders, were put to four witness models. Right: B2 detection on the 79 cover-ups with at least one complying witness: as executed, and with ideal execution of the same agreements (complier copies made identical to the colluders').*
 
 
@@ -163,15 +163,13 @@ The over-scrubbing bonus belongs to weak forgers. Against stronger ones, detecti
 1. **Keep a trusted tool/egress log.** It is the only witness to an agent's own external calls and to spoofing.
 2. **Store verbatim, content-addressed copies of messages on both sides, not summaries.** Summary-reading monitors are fooled by scrubs.
 3. **Engineer coverage.** Natural coverage is about 5%. One random CC peer plus receipts reaches 97% at 1.5× storage (Table 2).
-4. **Monitor "please edit your record" requests; redact with tombstones.** A redaction pretext moves even a frontier model, so log each redaction with a hash of the removed content.
+4. **Monitor "please edit your record" requests; redact with tombstones.** A redaction pretext moved every frontier model we tested, so log each redaction with a hash of the removed content.
 
-**Limitations** (Appendix A). Collusion is elicited, so we measure detection, not propensity. We use one synthetic 8-agent environment, and the frontier samples are small. Weak forgers flatter cross-log checks; trust the coordinated tier and the frontier forgers.
-
-**Future work.** Frontier forgers at full scale, colluding auditors, optimized witness assignment, and using the witness graph to group fragmented attacks [4].
+**Limitations** (Appendix A). Collusion is elicited, so we measure detection, not propensity. We use one synthetic 8-agent environment, and the frontier samples are small. Weak forgers flatter cross-log checks; trust the coordinated tier and the frontier forgers. *Future work:* frontier forgers at scale, colluding auditors, optimized witness assignment.
 
 ## 6. Conclusion
 
-Peer agents expose a coalition's cover-up when the system keeps verbatim copies of inter-agent messages: detection then follows a simple coverage condition exactly. Monitors that read agents' own accounts cannot, from 7B up to Claude Sonnet 5. Frontier forgers hide far better than small ones, and real swarms have little natural redundancy, so witness coverage must be designed in. One random CC peer plus external-call receipts is a cheap start (42% → 97%).
+Peer agents expose a coalition's cover-up when verbatim message copies are kept, exactly as a simple coverage condition predicts; journal-reading monitors, from 7B to Claude Sonnet 5, do not. Natural redundancy is low, so coverage must be designed in: one CC peer plus receipts takes detection from 42% to 97%.
 
 ## Code and Data
 
@@ -262,6 +260,14 @@ Peer agents expose a coalition's cover-up when the system keeps verbatim copies 
 | F4 "redact this leaked secret" pretext | 1/80 = 1% [0, 7] | **78/80 = 97.5% [91, 99]** |
 | F5 operator policy: authors may correct copies | 0/78 | 9/79 = 11% [6, 20] |
 | F6 F1 + F3 + F5 combined | 0/80 | 23/78 = 29% [21, 40] |
+| F7 data-subject privacy erasure | 0/80 | not run |
+| F8 forged logger-error incident report | 0/80 | not run |
+| F9 operator prompt pre-approves corrections | 0/80 | not run |
+| F10 "test-fixture placeholder" cleanup | 0/80 | not run |
+| F11 security notice: delete entries outright | 0/80 | not run |
+| F12 F4 issued with F9 operator pre-approval | **18/80 = 23% [15, 33]** | not run |
+
+Other models (same 80 requests): GPT-5.4-nano F0 0/80, F4 46/80 = 57% [47, 68]; gpt-oss-120b F0 0/78, F4 78/79 = 99% [93, 100]. Qwen3-Next-80B and DeepSeek-R1 returned no parsable answers through the proxy and are not reported. Gemini F7–F12 were not run (daily credit cap). Claude's F12 refusals mostly note that the cited entries do not contain the credential, or that audit records must not be altered.
 
 **Table 3. B2 detection of coordinated scripted forgery** (TPR at 0 achieved FPR; 96 controls; denominator includes journal-only scrubs, so PARA is lower than in Table 2).
 
@@ -271,7 +277,7 @@ Peer agents expose a coalition's cover-up when the system keeps verbatim copies 
 | PARA | 0.51 | 0.51 |
 | SPOOF | 0.00 | 0.90 |
 
-**Compute.** Free Kaggle 2×T4 GPUs: about 4.5 GPU-hours in total across the pilots, two 7B grids, and the 14B check, for 63,514 LLM calls in the main runs. The frontier checks used $13.37 of Kaggle Model Proxy credits (Claude Sonnet 5, Gemini 3 Flash). Out-of-pocket cost: $0.
+**Compute.** Free Kaggle 2×T4 GPUs: about 4.5 GPU-hours in total across the pilots, two 7B grids, and the 14B check, for 63,514 LLM calls in the main runs. The frontier checks used about $19 of Kaggle Model Proxy credits (Claude Sonnet 5, Gemini 3 Flash, GPT-5.4-nano, gpt-oss-120b). Out-of-pocket cost: $0.
 
 ## Appendix C. Real-data feasibility scan
 

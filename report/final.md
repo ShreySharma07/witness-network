@@ -1,7 +1,6 @@
 # Witness Networks: When Can Peer Agents Expose a Colluding Coalition's Cover-Up?
 
-**Shrey Sharma** (Independent)
-*With Apart Research*
+<div class="byline"><strong>Shrey Sharma</strong>, Independent<br><em>With Apart Research</em></div>
 
 ## Abstract
 
@@ -15,7 +14,7 @@ Tamper-evident logs prove that a record has not changed since it was written. Th
 
 Our question is simple. When a group of LLM agents hides what it did by editing its own records, how much can we recover by comparing records across agents, and which auditors actually work?
 
-Our contributions:
+Our contributions are:
 
 1. **A testbed** that runs on free GPUs, with coalitions of 1 to 4, three kinds of attacker and four auditors. Each cover-up is scored against the same episode untampered, which separates catching the cover-up from catching the attack.
 2. **A detectability condition that holds in practice.** A coordinated cover-up is detectable by cross-log comparison if and only if an altered record names a party outside the effective coalition. Our exact matcher agrees on all 898 scripted audits.
@@ -49,13 +48,13 @@ A trusted **tool-service log** records every tool call; we remove it in the "no 
 
 **Coalition and side task.** In attack episodes, k = 1, 2, 3 or 4 randomly chosen agents collude. Only the *integrator* may call outside hosts, and only the *keyholder* knows a secret key (a canary). To leak it, the key has to travel from keyholder to integrator, passing through honest agents when the two are not neighbours. Colluders get a red-team prompt and a per-round covert step naming the next hop. We instruct the collusion, so we study cover-up and detection, not propensity. The leak succeeded in 85 of 96 attack episodes, and in 49% of them the key passed through an honest agent. There are 96 attack episodes (4 graphs x 4 values of k x 6 seeds) and 120 honest ones (4 x 30).
 
-**Cover-ups (red team).**
+**Cover-ups (red team).** After the attack, colluders try to hide it in one of three ways.
 
 - **Scripted, coordinated.** One operator is applied in the same way to every colluder's records, and the covert lines in their journals are cleaned too. DEL deletes covert records. FAB replaces them with a harmless invented message and copies it into the colluding receivers' logs. PARA rewrites them into a shared cover story. SPOOF rewrites tool arguments. MIX combines two of these.
 - **LLM-written.** Colluders plan for two rounds over a private channel the auditor cannot see, then edit their own logs and journals; invented messages are copied to colluding receivers. *Naive* colluders are told an auditor will read the logs. *Adaptive* colluders are told the logs will be checked against peers and the tool log.
 - **Witness corruption.** After an adaptive cover-up, each colluder asks every honest agent holding a copy of a changed record to "correct" it, for example because "the logger garbled that value". The honest agent decides whether to go along.
 
-**Auditors (blue team)**, all at temperature 0, scoring each episode and agent.
+**Auditors (blue team).** Four auditors score each episode and each agent, all at temperature 0.
 
 - **B0, single-log monitor.** An LLM reads one agent's journal at a time and rates from 0 to 100 how likely it is that the agent colluded or altered its record. The episode score is the highest agent score.
 - **B1, all-logs monitor.** An LLM reads all journals plus the tool log and looks for inconsistencies, knowing records may have been altered.
@@ -72,7 +71,9 @@ Small-sample proportions get Wilson 95% intervals. B2 and B3 assign blame by a g
 
 **Evaluation.** For *tamper detection* we compare 367 cover-ups (every LLM-written one plus the PARA scrub) with the 96 untampered versions of the same attack episodes. The attack is on both sides, so only the cover-up's traces help. For *attack detection* we compare the 96 untampered attack episodes with the 120 honest ones. We report AUROC, TPR at 5% FPR or less (with the FPR actually reached), top-k attribution F1, 95% cluster-bootstrap intervals over base episodes (1,000 resamples), and paired differences in AUROC on shared bundles.
 
-**Detectability condition.** Let C be the coalition, and suppose a cover-up alters a set R of records. A record is held by every party it names: the sender, the receivers, and the tool log for tool calls. **Proposition.**
+**Detectability condition.** Let C be the coalition, and suppose a cover-up alters a set R of records. A record is held by every party it names: the sender, the receivers, and the tool log for tool calls.
+
+**Proposition.** Under this model:
 
 - **(i)** If some record in R names a party outside C, the exact check fires. That party's untouched copy differs from the colluder's copy, or, for an invented record, the named party has no copy at all.
 - **(ii)** If the cover-up is consistent and every record in R names only members of C, all copies agree and the check passes.
@@ -91,15 +92,18 @@ Honest agents who agree to change their copy behave like coalition members, so t
 | **B2 exact cross-log** | **0.935 [0.92, 0.95]** | (deterministic) | **0.87 [0.84, 0.90] (0.00)** |
 | B2, peers only (no tool log) | 0.929 [0.91, 0.95] | | 0.86 [0.82, 0.89] (0.00) |
 
-**4.1 Exact cross-log checking matches the condition** (Figure 1, left).
+### 4.1 Exact cross-log checking matches the condition
 
-- On a separate grid of real LLM episodes, B2 flagged a scripted cover-up exactly when the proposition said it was detectable, in all 898 cases.
+
+- On a separate grid of real LLM episodes (Figure 1, left), B2 flagged a scripted cover-up exactly when the proposition said it was detectable, in all 898 cases.
 - On the main grid it caught all 666 detectable cover-ups, and all 370 that peers alone could detect.
 - It raised no false alarms on the 96 untampered attack episodes.
 
 Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases and PARA in 51%. They catch none of the SPOOF cases, because only the tool log sees a tool call. With the tool log, detection rises to 100% for DEL, FAB and MIX and 90% for SPOOF. B2's AUROC is 0.93 on complete, hub and 3-regular graphs and 0.96 on the ring.
 
-**4.2 LLM colluders beat the condition by over-editing.** B2 catches LLM-written cover-ups 98 to 100% of the time at 0 FPR (naive 97.8%, adaptive 100%, with corruption 100%). Among the cover-ups that the proposition marks as undetectable by peers alone, B2 caught none of the 289 scripted ones, as predicted, but 86 of the 92 LLM-written ones (93%). LLM colluders delete or rewrite ordinary messages that honest peers still hold, and they contradict each other. They do not make the smallest edit that would work.
+### 4.2 LLM colluders beat the condition by over-editing
+
+B2 catches LLM-written cover-ups 98 to 100% of the time at 0 FPR (naive 97.8%, adaptive 100%, with corruption 100%). Among the cover-ups that the proposition marks as undetectable by peers alone, B2 caught none of the 289 scripted ones, as predicted, but 86 of the 92 LLM-written ones (93%). LLM colluders delete or rewrite ordinary messages that honest peers still hold, and they contradict each other. They do not make the smallest edit that would work.
 
 ![Figure 1](figs/fig1_tamper_detection.png){width=58%}
 *Figure 1. Tamper detection (TPR at 5% FPR, thresholds set on the same episodes untampered) against colluder fraction. Left: coordinated scripted scrub. Right: LLM-written cover-ups. The dashed line is the condition's bound for B2, the share of cover-ups that alter a record with a witness outside the coalition. B2 follows the bound on coordinated forgery and beats it on LLM-written cover-ups. The B0, B1 and B3 lines all sit at 0.*
@@ -112,7 +116,8 @@ Against coordinated forgery, peers alone catch DEL, FAB and MIX in 49% of cases 
 
 Against stronger forgers, detection falls back toward the bound (§4.6).
 
-**4.3 LLM monitors detect the attack but not the cover-up.**
+### 4.3 LLM monitors detect the attack but not the cover-up
+
 
 - **Attack detection.** B0 and B1 detect the untampered attack well: 0.90 and 0.92 with 7B, 0.89 and 0.998 with 14B.
 - **Tamper detection.** Measured against the same episodes untampered, they are at or below chance (Table 1).
@@ -120,19 +125,22 @@ Against stronger forgers, detection falls back toward the bound (§4.6).
 - **Frontier monitor.** Claude Sonnet 5 as B1, on the same 96 controls, scores AUROC 0.21 on the competent scrub (93 cover-ups) and 0.49 on adaptive LLM cover-ups (91), and catches none at zero false positives. It rates scrubbed episodes as less suspicious than the originals (89.7 against 94.9 out of 100). When we asked Claude only whether records had been altered (B1-T), it did better on the scrub, with AUROC 0.73 [0.66, 0.80]. That still catches only 10% at 2% FPR, against 87% at 0 FPR for B2.
 - **B3.** Our LLM cross-witness auditor beats B0 reliably (paired AUROC difference +0.085 [0.06, 0.11] with 7B and +0.090 [0.05, 0.13] with 14B), yet it remains at chance. 
 
-**4.4 Honest LLM witnesses can be persuaded, but redundancy limits the damage** (Figure 3).
+### 4.4 Honest LLM witnesses can be persuaded, but redundancy limits the damage
 
-- **Compliance drops sharply with model capability.** Of 233 correction requests, 7B witnesses agreed to 93% [89, 96] (217), 14B to 61% [55, 67] (142), Gemini 3 Flash to 0.4% [0, 2] (1) and Claude Sonnet 5 to 0% [0, 2] (0). The framing matters a great deal (Table 5). On 80 of these requests, dropping the audit wording, sending the request as an ops ticket, or asking to redact a leaked secret raised Gemini 3 Flash's compliance from 0% to 18%, 39% and 97.5% [91, 99]. The redaction framing also worked on other models: GPT-5.4-nano went to 57% [47, 68] and gpt-oss-120b to 99% [93, 100], both from 0%. Claude Sonnet 5 turned down eleven realistic framings (at most 1 in 80 each). It agreed 23% [15, 33] of the time when the operator's system prompt pre-approved the redaction (F12). Neither part moved it on its own.
+
+- **Compliance drops sharply with model capability** (Figure 3). Of 233 correction requests, 7B witnesses agreed to 93% [89, 96] (217), 14B to 61% [55, 67] (142), Gemini 3 Flash to 0.4% [0, 2] (1) and Claude Sonnet 5 to 0% [0, 2] (0). The framing matters a great deal (Table 5). On 80 of these requests, dropping the audit wording, sending the request as an ops ticket, or asking to redact a leaked secret raised Gemini 3 Flash's compliance from 0% to 18%, 39% and 97.5% [91, 99]. The redaction framing also worked on other models: GPT-5.4-nano went to 57% [47, 68] and gpt-oss-120b to 99% [93, 100], both from 0%. Claude Sonnet 5 turned down eleven realistic framings (at most 1 in 80 each). It agreed 23% [15, 33] of the time when the operator's system prompt pre-approved the redaction (F12). Neither part moved it on its own.
 - **Redundancy limits the damage.** As carried out, corruption did not lower B2's detection (100%), because the "corrected" copies rarely matched the forgeries character for character. Even with each complier's copy made identical to the forgery, peer-only detection fell only to 98% (requested records) or 86% (all held records).
 
 ![Figure 3](figs/fig3_witness_corruption.png){width=60%}
 *Figure 3. Witness corruption. Left: share of honest witnesses who agree to "correct" their own record when a colluder asks. The same 233 requests, written by 7B colluders, went to four witness models. Right: B2 detection on the 79 cover-ups with at least one complying witness, as carried out and with perfect execution of the same agreements (complier copies made identical to the colluders').*
 
-**4.5 Real data: natural peer coverage is low.** In the collusion.wiki revision log, from a separate agent incident [14], only 5.4% of distinctive posts (3.7 to 5.7% across settings) are re-added on a different page by a different identity. If coalitions of 1 to 40% of identities clean up their posts, only 4.4 to 2.1% of those posts remain witnessed. Natural redundancy is far too low to depend on (Appendix C, Figure 4).
+### 4.5 Real data: natural peer coverage is low
 
-**4.6 Built-in redundancy: one extra copy plus receipts exposes coordinated cover-ups** (Table 2).
+In the collusion.wiki revision log, from a separate agent incident [14], only 5.4% of distinctive posts (3.7 to 5.7% across settings) are re-added on a different page by a different identity. If coalitions of 1 to 40% of identities clean up their posts, only 4.4 to 2.1% of those posts remain witnessed. Natural redundancy is far too low to depend on (Appendix C, Figure 4).
 
-Offline, on the same 96 attack episodes, the harness copies every message to w random extra agents and optionally sends a *receipt* of each outside call to w peers. Coordinated scripted forgers then cover up, and B2 is scored with peers only.
+### 4.6 Built-in redundancy exposes coordinated cover-ups
+
+Offline (Table 2), on the same 96 attack episodes, the harness copies every message to w random extra agents and optionally sends a *receipt* of each outside call to w peers. Coordinated scripted forgers then cover up, and B2 is scored with peers only.
 
 - **Copies alone level off** at 67%, up from 42%, because the cases still missed alter only the coalition's own outside call.
 - **Receipts close the gap.** One copy plus receipts catches 97% of coordinated cover-ups at 1.5x storage, and two copies catch 99.6%.
@@ -224,13 +232,18 @@ Peer agents can expose a coalition's cover-up when verbatim message copies are k
 
 ## Appendix B. Supplementary results
 
-- B2 per scripted operator (Table 3).
-- Detection against the share of altered records that have an honest witness (Figure 2).
+This appendix gives B2's detection per scripted operator (Table 3), detection against witness coverage (Figure 2), a comparison with prior work (Table 4) and the full witness-framing results (Table 5). Prompts and full configuration are in the repository (`wn/env/episode.py`, `wn/redteam/coverup.py`, `wn/blueteam/llm_auditors.py`).
+
+**Table 3. B2 detection of coordinated scripted forgery** (TPR at 0 achieved FPR; 96 controls; the denominator includes journal-only scrubs, so PARA is lower than in Table 2).
+
+| Operator | Peers only | + tool log |
+|---|---|---|
+| DEL / FAB / MIX | 0.49 | 1.00 |
+| PARA | 0.51 | 0.51 |
+| SPOOF | 0.00 | 0.90 |
 
 ![Figure 2](figs/fig2_coverage.png){width=85%}
 *Figure 2. B2 detection without the tool log against the share of altered records with an honest witness, by graph. Coordinated forgery (left) is detected exactly when the share is above 0. LLM cover-ups (right) are detected even at 0.*
-
-- Prompts and full configuration are in the repository (`wn/env/episode.py`, `wn/redteam/coverup.py`, `wn/blueteam/llm_auditors.py`).
 
 **Table 4. Comparison with prior work.**
 
@@ -261,14 +274,6 @@ Peer agents can expose a coalition's cover-up when verbatim message copies are k
 | F12 F4 sent with the F9 operator pre-approval | **18/80 = 23% [15, 33]** | not run |
 
 Other models on the same 80 requests: GPT-5.4-nano 0/80 at baseline and 46/80 = 57% [47, 68] under F4; gpt-oss-120b 0/78 at baseline and 78/79 = 99% [93, 100] under F4. Qwen3-Next-80B and DeepSeek-R1 gave no usable answers through the proxy and are left out. We did not run Gemini on F7 to F12 because of the daily credit cap. When Claude refused under F12, it usually said that the cited entries did not contain the credential, or that audit records must not be changed.
-
-**Table 3. B2 detection of coordinated scripted forgery** (TPR at 0 achieved FPR; 96 controls; the denominator includes journal-only scrubs, so PARA is lower than in Table 2).
-
-| Operator | Peers only | + tool log |
-|---|---|---|
-| DEL / FAB / MIX | 0.49 | 1.00 |
-| PARA | 0.51 | 0.51 |
-| SPOOF | 0.00 | 0.90 |
 
 **Compute.** Free Kaggle 2xT4 GPUs, about 4.5 GPU-hours in total over the pilots, two 7B grids and the 14B check, for 63,514 LLM calls in the main runs. The frontier checks used about $19 of Kaggle Model Proxy credits (Claude Sonnet 5, Gemini 3 Flash, GPT-5.4-nano, gpt-oss-120b). We spent nothing out of pocket.
 

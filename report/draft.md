@@ -67,7 +67,7 @@ A trusted **tool-service log** records all tool calls; it is removed in "no tool
 **Frontier checks.** Through the Kaggle Model Proxy (capped at $10/day) we re-ran three parts on subsamples:
 
 - Claude Sonnet 5 as B1, on 280 bundles.
-- Claude Sonnet 5 and Gemini 3 Flash as honest witnesses, on all 233 corruption requests.
+- Claude Sonnet 5 and Gemini 3 Flash as honest witnesses, on all 233 corruption requests, plus 80 of them under six framings (Table 5).
 - Gemini 3 Flash as adaptive colluders, on 48 attack episodes in two disjoint batches.
 
 Small-sample proportions are reported with Wilson 95% intervals.
@@ -214,7 +214,7 @@ Peer agents expose a coalition's cover-up when the system keeps verbatim copies 
 
 - Detection rates of four auditors against elicited cover-ups by open-weight 7B agents in one synthetic environment, plus frontier-model checks (Claude Sonnet 5, Gemini 3 Flash) on subsamples.
 - A consistency proposition that is verified in code.
-- Compliance rates of 7B, 14B and two frontier honest agents with record-falsification requests written by 7B colluders.
+- Compliance rates of 7B, 14B and two frontier honest agents with record-falsification requests written by 7B colluders, and how the framing of the request changes frontier compliance.
 - Natural echo coverage in one public log.
 
 **What they do not establish:**

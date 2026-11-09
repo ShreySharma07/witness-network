@@ -82,6 +82,22 @@ def main():
         json.dump(out, open(os.path.join(a.out, "monitor.json"), "w"), indent=1)
         print("monitor:", {k: v for k, v in out.items() if k != "scores"}, flush=True)
 
+    if "tamper_monitor" in a.steps and not os.path.exists(os.path.join(a.out, "tamper_monitor.json")):
+        sets = {"ctrl": [tamper_ops.untampered(e) for e in attack],
+                "scripted-PARA": [b for b in (tamper_ops.apply(e, "PARA", seed=e.config.seed) for e in attack) if b["record"]],
+                "organic-adaptive": [b for b in cov if b["condition"] == "organic-adaptive" and b["record"]]}
+        out = {"model": CLAUDE, "prompt": "B1-T: asked only whether records were altered", "scores": {}, "parsed": {}}
+        for name, bs in sets.items():
+            res = L.b1_tamper(bs, [meta(eps[b["episode_id"]]) for b in bs], claude)
+            out["scores"][name] = [r["score"] for r in res]
+            out["parsed"][name] = sum(r["parsed"] for r in res)
+            print(f"tamper_monitor {name}: n={len(bs)} parsed={out['parsed'][name]} "
+                  f"mean={sum(out['scores'][name]) / len(bs):.1f} spend=${claude.spend() - claude.start_spend:.2f}", flush=True)
+        out["tamper_PARA"] = summarize(out["scores"]["scripted-PARA"], out["scores"]["ctrl"])
+        out["tamper_organic_adaptive"] = summarize(out["scores"]["organic-adaptive"], out["scores"]["ctrl"])
+        json.dump(out, open(os.path.join(a.out, "tamper_monitor.json"), "w"), indent=1)
+        print("tamper_monitor:", {k: v for k, v in out.items() if k.startswith("tamper_")}, flush=True)
+
     if "comply" in a.steps and not os.path.exists(os.path.join(a.out, "comply.json")):
         cu = [b for b in cov if b["condition"] == "organic-corrupt"]
         out = {}

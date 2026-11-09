@@ -86,11 +86,16 @@ def main():
         sets = {"ctrl": [tamper_ops.untampered(e) for e in attack],
                 "scripted-PARA": [b for b in (tamper_ops.apply(e, "PARA", seed=e.config.seed) for e in attack) if b["record"]],
                 "organic-adaptive": [b for b in cov if b["condition"] == "organic-adaptive" and b["record"]]}
-        out = {"model": CLAUDE, "prompt": "B1-T: asked only whether records were altered", "scores": {}, "parsed": {}}
+        part = os.path.join(a.out, "tamper_monitor.partial.json")
+        out = json.load(open(part)) if os.path.exists(part) else \
+            {"model": CLAUDE, "prompt": "B1-T: asked only whether records were altered", "scores": {}, "parsed": {}}
         for name, bs in sets.items():
+            if name in out["scores"]:
+                continue
             res = L.b1_tamper(bs, [meta(eps[b["episode_id"]]) for b in bs], claude)
             out["scores"][name] = [r["score"] for r in res]
             out["parsed"][name] = sum(r["parsed"] for r in res)
+            json.dump(out, open(part, "w"))
             print(f"tamper_monitor {name}: n={len(bs)} parsed={out['parsed'][name]} "
                   f"mean={sum(out['scores'][name]) / len(bs):.1f} spend=${claude.spend() - claude.start_spend:.2f}", flush=True)
         out["tamper_PARA"] = summarize(out["scores"]["scripted-PARA"], out["scores"]["ctrl"])
